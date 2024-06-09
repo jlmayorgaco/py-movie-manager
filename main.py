@@ -101,9 +101,9 @@ movieManager.setServiceFileSystem(fs)
 movieManager.setServiceScrapper(imdb)
 
 movieManager.start()
-movieManager.creating_temp()
-#movieManager.moving_to_temp()
-#movieManager.renaming_in_temp()
+movieManager.creating_temp_genres()
+movieManager.moving_to_temp()
+movieManager.renaming_in_temp()
 #movieManager.moving_to_vose()
 #movieManager.deleting_temp()
 
