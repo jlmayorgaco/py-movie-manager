@@ -45,6 +45,7 @@ class MovieManager(IMovieManager):
         path_raw = self.configService.directory_raw
         path_vose = self.configService.directory_vose
         path_temp = path_raw + '/../' + temp_dir
+
         self.fileSystemService.cd(path_raw)
 
         # Creating TEMP folder
@@ -89,7 +90,6 @@ class MovieManager(IMovieManager):
     def moving_to_temp(self):
 
         print(' STEP::2 .... moving_to_temp ')
-
 
         temp_dir = '__TMM_TEMP__'
         path_raw = self.configService.directory_raw
