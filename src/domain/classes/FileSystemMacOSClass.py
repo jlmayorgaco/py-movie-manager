@@ -21,6 +21,15 @@ class FileSystemMacOS(IFileSystem):
         except OSError:
             print("Failed to change directory. Directory may not exist or access denied.")
 
+    def pwd(self):
+        try:
+            pwd = os.getcwd()
+            print(f''' ... pwd :: <{pwd}>''')
+            print(f''' ''')
+            return pwd
+        except OSError:
+            print("Failed to change directory. Directory may not exist or access denied.")
+
     def rename(self, folder: str, new_name: str) -> bool:
         try:
             # Get the full path of the folder
