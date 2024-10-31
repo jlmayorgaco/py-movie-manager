@@ -100,6 +100,12 @@ movieManager.setServiceFilter(ff)
 movieManager.setServiceFileSystem(fs)
 movieManager.setServiceScrapper(imdb)
 
+print(' ')
+print(' ====================================== ')
+print(' ===  START::movieManager ============= ')
+print(' ====================================== ')
+print(' ')
+
 movieManager.start()
 movieManager.creating_temp_genres()
 movieManager.moving_to_temp()
