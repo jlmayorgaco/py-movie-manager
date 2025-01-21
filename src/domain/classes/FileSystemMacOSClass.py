@@ -1,167 +1,256 @@
 import os
 import shutil
+from typing import List, Optional
+from src.domain.interfaces.IFileSystemInterface import IFileSystem
 
-from ..interfaces.IFileSystemInterface import IFileSystem
 
 class FileSystemMacOS(IFileSystem):
+    """
+    FileSystemMacOS: A class to manage filesystem operations on macOS.
+    Provides utilities for directory navigation, file operations, and filtering.
+    """
+
     def __init__(self):
-        self.cwd = ''
-        self.filterService = None
+        """
+        Initialize the FileSystemMacOS with default values.
+        """
+        self._cwd = os.getcwd()
+        self._filter_service = None
+        self._config_service = None
 
-    def __str__(self):
-        return f'''
-        FileSystemMacOS::CWD <{self.cwd}>
-        '''
+    def __str__(self) -> str:
+        """
+        Return a string representation of the current working directory (CWD).
+        """
+        return f"FileSystemMacOS::CWD <{self._cwd}>"
 
-    def cd(self, path: str):
-        try:
-            os.chdir(path)
-            print(f''' ... cd to <{os.getcwd()}>''')
-            print(f''' ''')
-        except OSError:
-            print("Failed to change directory. Directory may not exist or access denied.")
+    # Directory Navigation Methods
+    def cd(self, path: str) -> None:
+        """
+        Change the current working directory.
 
-    def pwd(self):
-        try:
-            pwd = os.getcwd()
-            print(f''' ... pwd :: <{pwd}>''')
-            print(f''' ''')
-            return pwd
-        except OSError:
-            print("Failed to change directory. Directory may not exist or access denied.")
+        Args:
+            path (str): Path to the desired directory.
 
-    def rename(self, folder: str, new_name: str) -> bool:
-        try:
-            # Get the full path of the folder
-            current_path = os.path.join(os.getcwd(), folder)
-            # Construct the new path with the new name
-            new_path = os.path.join(os.getcwd(), new_name)
-            # Rename the folder
-            os.rename(current_path, new_path)
-            print(f"Renamed folder '{folder}' to '{new_name}' successfully.")
-            return True
-        except OSError as e:
-            print(f"Failed to rename folder '{folder}' to '{new_name}': {e}")
-            return False
+        Raises:
+            ValueError: If the path does not exist.
+        """
+        if not os.path.exists(path):
+            raise ValueError(f"Path does not exist: {path}")
+        os.chdir(path)
+        self._cwd = os.getcwd()
 
-    def mkdir(self, folder_name: str):
-        try:
-            os.mkdir(folder_name)
-            directories = [name for name in os.listdir() if os.path.isdir(name)]
-            #print(" ... Other folders in the current directory:")
-            #for directory in directories:
-                #print('          => ' + directory)
-        except OSError:
-            print(f"Creation of the folder '{folder_name}' failed.")
-    def rmdir(self, folder_name: str):
-        try:
-            shutil.rmtree(os.path.join(os.getcwd(), folder_name))
+    def pwd(self) -> str:
+        """
+        Get the current working directory.
 
-            #print(f" ... rm -r in folder '{folder_name}' deleted successfully.")
-        except OSError:
-            print(f"Deletion of the folder '{folder_name}' failed.")
+        Returns:
+            str: The current working directory.
+        """
+        return self._cwd
 
-    def join(self, path, folder):
-        return os.path.join(path, folder)
+    def back(self, path: str) -> str:
+        """
+        Move one level up in the directory hierarchy.
 
-    def back(self, path: str):
-        return 1
+        Args:
+            path (str): The current directory path.
 
-    def move(self, from_path: str, to_path: str) -> bool:
-        try:
-            # Check if the destination directory exists
-            if os.path.exists(os.path.join(to_path, os.path.basename(from_path))):
-                # Remove the destination directory
-                print('Folder already exist')
-                print(os.path.join(to_path, os.path.basename(from_path)))
-                #shutil.rmtree(os.path.join(to_path, os.path.basename(from_path)))
+        Returns:
+            str: The parent directory path.
+        """
+        parent_dir = os.path.dirname(path)
+        os.chdir(parent_dir)
+        self._cwd = os.getcwd()
+        return self._cwd
 
-            # Define a custom copy function to overwrite existing files
-            def copy_with_overwrite_func(src, dst, *, follow_symlinks=True):
-                shutil.copy2(src, dst, follow_symlinks=follow_symlinks)
+    # Directory Management Methods
+    def mkdir(self, folder_name: str) -> None:
+        """
+        Create a new directory in the current working directory.
 
-            # Copy the entire directory tree from 'from_path' to 'to_path'
-            shutil.copytree(from_path, os.path.join(to_path, os.path.basename(from_path)), copy_function=copy_with_overwrite_func)
+        Args:
+            folder_name (str): Name of the folder to create.
 
-            # Remove the original directory tree
-            shutil.rmtree(from_path)
+        Raises:
+            ValueError: If the folder already exists.
+        """
+        path = os.path.join(self._cwd, folder_name)
+        if os.path.exists(path):
+            raise ValueError(f"Folder already exists: {folder_name}")
+        os.mkdir(path)
 
-            print(f''' 
-                  Moved '{from_path}' 
-                  To '{to_path}' successfully.
+    def rmdir(self, folder_name: str) -> None:
+        """
+        Remove a directory and its contents.
 
-            ''')
-            return os.path.join(to_path, os.path.basename(from_path))
-        except OSError as e:
-            print(f"Failed to move '{from_path}' to '{to_path}': {e}")
-            return False
+        Args:
+            folder_name (str): Name of the folder to remove.
 
+        Raises:
+            ValueError: If the folder does not exist.
+        """
+        path = os.path.join(self._cwd, folder_name)
+        if not os.path.exists(path):
+            raise ValueError(f"Folder does not exist: {folder_name}")
+        shutil.rmtree(path)
 
-    def move2(self, from_path: str, to_path: str) -> bool:
-        try:
+    def list_directories(self) -> List[str]:
+        """
+        List all directories in the current working directory.
 
-            # Define a custom copy function to overwrite existing files
-            def copy_with_overwrite_func(src, dst, *, follow_symlinks=True):
-                shutil.copy2(src, dst, follow_symlinks=follow_symlinks)
+        Returns:
+            List[str]: A list of directory names.
+        """
+        return [name for name in os.listdir(self._cwd) if os.path.isdir(os.path.join(self._cwd, name))]
 
-            # Copy the entire directory tree from 'from_path' to 'to_path'
-            shutil.copytree(from_path, os.path.join(to_path, os.path.basename(from_path)), copy_function=copy_with_overwrite_func)
+    # File and Folder Operations
+    def rename(self, folder: str, new_name: str) -> None:
+        """
+        Rename a folder in the current directory.
 
-            # Remove the original directory tree
-            shutil.rmtree(from_path)
+        Args:
+            folder (str): The current folder name.
+            new_name (str): The new folder name.
 
-            print(f''' 
-                  Moved '{from_path}' 
-                  To '{to_path}' successfully.
+        Raises:
+            ValueError: If the folder does not exist.
+        """
+        current_path = os.path.join(self._cwd, folder)
+        new_path = os.path.join(self._cwd, new_name)
+        if not os.path.exists(current_path):
+            raise ValueError(f"Folder does not exist: {folder}")
+        os.rename(current_path, new_path)
 
-            ''')
-            return os.path.join(to_path, os.path.basename(from_path))
-        except OSError as e:
-            print(f"Failed to move '{from_path}' to '{to_path}': {e}")
-            return False
+    def move(self, from_path: str, to_path: str) -> None:
+        """
+        Move a directory to a new location.
 
-    def setFilter(self, filterService):
-        self.filterService = filterService
+        Args:
+            from_path (str): Source directory path.
+            to_path (str): Destination directory path.
+
+        Raises:
+            ValueError: If the source or destination is invalid.
+        """
+        abs_from_path = os.path.abspath(from_path)
+        abs_to_path = os.path.abspath(to_path)
+        if not os.path.exists(abs_from_path):
+            raise ValueError(f"Source path does not exist: {abs_from_path}")
+        if not os.path.exists(os.path.dirname(abs_to_path)):
+            raise ValueError(f"Destination path does not exist: {os.path.dirname(abs_to_path)}")
+        shutil.move(abs_from_path, abs_to_path)
+
+    def get_folder(self, folder_name: str) -> str:
+        """
+        Get the absolute path of a folder.
+
+        Args:
+            folder_name (str): Name of the folder.
+
+        Returns:
+            str: The absolute path to the folder.
+        """
+        return os.path.join(self._cwd, folder_name)
+
+    def get_folders(self) -> List[str]:
+        """
+        List all folders in the current directory.
+
+        Returns:
+            List[str]: A list of folder names.
+        """
+        return self.list_directories()
+
+    def create_folder(self, folder_name: str) -> None:
+        """
+        Create a single folder.
+
+        Args:
+            folder_name (str): Name of the folder to create.
+        """
+        self.mkdir(folder_name)
+
+    def delete_folder(self, folder_name: str) -> None:
+        """
+        Delete a single folder.
+
+        Args:
+            folder_name (str): Name of the folder to delete.
+        """
+        self.rmdir(folder_name)
+
+    def create_folders(self, folders: List[str]) -> None:
+        """
+        Create multiple folders.
+
+        Args:
+            folders (List[str]): List of folder names to create.
+        """
+        for folder in folders:
+            self.mkdir(folder)
+
+    def delete_folders(self, folders: List[str]) -> None:
+        """
+        Delete multiple folders.
+
+        Args:
+            folders (List[str]): List of folder names to delete.
+        """
+        for folder in folders:
+            self.rmdir(folder)
+
+    def move_folder(self, origin_path: str, destination_path: str) -> None:
+        """
+        Move a single folder.
+
+        Args:
+            origin_path (str): Source folder path.
+            destination_path (str): Destination folder path.
+        """
+        self.move(origin_path, destination_path)
+
+    def move_folders(self, folders: List[str], destination_path: str) -> None:
+        """
+        Move multiple folders to a destination.
+
+        Args:
+            folders (List[str]): List of folder paths to move.
+            destination_path (str): Destination directory.
+        """
+        for folder in folders:
+            self.move(folder, destination_path)
+
+    # Filter and Config Management
+    def setFilter(self, filter_service) -> None:
+        """
+        Set the filter service for the filesystem.
+        """
+        self._filter_service = filter_service
 
     def getFilter(self):
-        return self.filterService
+        """
+        Get the current filter service.
+        """
+        return self._filter_service
 
-    def setConfig(self, configService):
-        self.configService = configService
+    def hasFilter(self) -> bool:
+        """
+        Check if a filter service is set.
+
+        Returns:
+            bool: True if a filter service is set, False otherwise.
+        """
+        return self._filter_service is not None
+
+    def setConfig(self, config_service) -> None:
+        """
+        Set the configuration service for the filesystem.
+        """
+        self._config_service = config_service
 
     def getConfig(self):
-        return self.configService
-
-    def hasFilter(self):
-        return (self.getFilter() is not None)
-
-
-    def get_folder(folder_name):
-        return folder_name
-
-    def create_folder(folder_name):
-        return 1
-
-    def move_folder(origin_path, destination_path):
-        return 1
-
-    def delete_folder(folder_name):
-        return 1
-
-    def get_folders(self):
-        try:
-            folders = [name for name in os.listdir() if os.path.isdir(name)]
-            return folders
-        except OSError:
-            print("Failed to get folders in the current directory.")
-            return []
-
-    def create_folders():
-        return 1
-
-    def move_folders():
-        return 1
-
-    def delete_folders():
-        return 1
-
+        """
+        Get the current configuration service.
+        """
+        return self._config_service
