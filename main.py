@@ -48,16 +48,9 @@ scalability, and maintainability.
 ## ------------------------------------------------------------------------------ ##
 import os
 import logging
-
-from enum import Enum
 from dotenv import load_dotenv
 
 from config.GenresConfig import GenresEnum
-
-from src.domain.interfaces.IConfigInterface import IConfig
-from src.domain.interfaces.IScrapperInterface import IScrapper
-from src.domain.interfaces.IFileSystemInterface import IFileSystem
-from src.domain.interfaces.IFilterServiceInterface import IFilterService
 
 from src.domain.classes.ConfigClass import Config
 from src.domain.classes.ScrapperServiceIMDB import ScrapperServiceIMDB
@@ -74,90 +67,70 @@ logger = logging.getLogger(__name__)
 ## ------------------------------------------------------------------------------ ##
 
 
-try:
-    ## ------------------------------------------------------------------------------ ##
-    ## ---- Mod::Config Service ----------------------------------------------------- ##
-    ## ------------------------------------------------------------------------------ ##
-    cnfg = Config()
-    cnfg.setDirectorySource(os.getenv("SOURCE_DIR", "/source"))
-    cnfg.setDirectoryTarget(os.getenv("TARGET_DIR", "/target"))
-    cnfg.setGenres(GenresEnum)
+def initialize_services():
+    """Initialize and configure all services."""
+    try:
+        # Validate critical environment variables
+        source_dir = os.getenv("SOURCE_DIR")
+        target_dir = os.getenv("TARGET_DIR")
+        if not source_dir or not target_dir:
+            raise ValueError("SOURCE_DIR and TARGET_DIR must be set in the environment.")
 
-    logger.info("CONFIG .... DONE")
-    logger.info(cnfg)
-    ## ------------------------------------------------------------------------------ ##
+        # Config Service
+        cnfg = Config()
+        cnfg.setDirectorySource(source_dir)
+        cnfg.setDirectoryTarget(target_dir)
+        cnfg.setGenres(GenresEnum)
 
+        # Scrapper Service
+        imdb = ScrapperServiceIMDB()
+        imdb.setApiKey(os.getenv("IMDB_API_KEY", "default_api_key"))
 
+        # Filter Service
+        ff = FilterServiceDefault()
+        ff.setGenres(cnfg.getGenres())
+        ff.setGenreSearchTag(os.getenv("GENRE_TAG", "[g-*]"))
+        ff.setDirectorSearchTag(os.getenv("DIRECTOR_TAG", "[d-*]"))
 
-    ## ------------------------------------------------------------------------------ ##
-    ## ---- Mod::Scrapper Service --------------------------------------------------- ##
-    ## ------------------------------------------------------------------------------ ##
-    imdb = ScrapperServiceIMDB()
-    imdb.setApiKey(os.getenv("IMDB_API_KEY", "default_api_key"))
+        # File System Service
+        fs = FileSystemMacOS()
+        fs.setConfig(cnfg)
+        fs.setFilter(ff)
 
-    logger.info("SCRAPPER .... DONE")
-    logger.info(imdb)
-    ## ------------------------------------------------------------------------------ ##
+        # Movie Manager
+        movieManager = MovieManager()
+        movieManager.setServiceConfig(cnfg)
+        movieManager.setServiceFilter(ff)
+        movieManager.setServiceFileSystem(fs)
+        movieManager.setServiceScrapper(imdb)
 
-
-
-    ## ------------------------------------------------------------------------------ ##
-    ## ---- Mod::Filter Service ----------------------------------------------------- ##
-    ## ------------------------------------------------------------------------------ ##
-    ff = FilterServiceDefault()
-    ff.setGenres(cnfg.getGenres())
-    ff.setGenreSearchTag(os.getenv("GENRE_TAG", "[g-*]"))
-    ff.setDirectorSearchTag(os.getenv("DIRECTOR_TAG", "[d-*]"))
-
-    logger.info("FilterService .... DONE")
-    logger.info(ff)
-    ## ------------------------------------------------------------------------------ ##
-
-
-
-    ## ------------------------------------------------------------------------------ ##
-    ## ---- Mod::Mac OS FileSystem -------------------------------------------------- ##
-    ## ------------------------------------------------------------------------------ ##
-    fs = FileSystemMacOS()
-    fs.setConfig(cnfg)
-    fs.setFilter(ff)
-
-    logger.info("FileSystem .... DONE")
-    logger.info(fs)
-    ## ------------------------------------------------------------------------------ ##
+        logger.info("Initialization complete.")
+        return movieManager
+    except Exception as e:
+        logger.error(f"Initialization error: {e}")
+        raise
 
 
-
-    ## ------------------------------------------------------------------------------ ##
-    ## ---- Mod::MovieManager ------------------------------------------------------- ##
-    ## ------------------------------------------------------------------------------ ##
-    movieManager = MovieManager()
-    movieManager.setServiceConfig(cnfg)
-    movieManager.setServiceFilter(ff)
-    movieManager.setServiceFileSystem(fs)
-    movieManager.setServiceScrapper(imdb)
-
-    logger.info(" ")
-    logger.info("======================================")
-    logger.info("===  START::movieManager =============")
-    logger.info("======================================")
-    logger.info(" ")
-
-    def run_movie_manager():
-        try:
-            movieManager.start()
-            movieManager.creating_temp_genres()
-            movieManager.moving_to_temp()
-            movieManager.renaming_in_temp()
-            # movieManager.moving_to_vose()
-            # movieManager.deleting_temp()
-        except Exception as e:
-            logger.error(f"Workflow error: {e}")
-
-    ## ------------------------------------------------------------------------------ ##
-except Exception as e:
-    logger.error(f"An error occurred: {e}")
+def run_movie_manager(movieManager):
+    """Execute the main workflow for movie management."""
+    try:
+        movieManager.start()
+        movieManager.creating_temp_genres()
+        movieManager.moving_to_temp()
+        movieManager.renaming_in_temp()
+        # movieManager.moving_to_vose()
+        # movieManager.deleting_temp()
+        logger.info("Workflow completed successfully.")
+    except Exception as e:
+        logger.error(f"Workflow error: {e}")
 
 
 if __name__ == "__main__":
-    run_movie_manager()
+    try:
+        # Initialize services
+        movieManager = initialize_services()
+
+        # Run the movie management workflow
+        run_movie_manager(movieManager)
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
