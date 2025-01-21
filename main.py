@@ -67,7 +67,7 @@ logger = logging.getLogger(__name__)
 ## ------------------------------------------------------------------------------ ##
 
 
-def initialize_services():
+def initialize_movie_manager_services():
     """Initialize and configure all services."""
     try:
         # Validate critical environment variables
@@ -115,9 +115,9 @@ def run_movie_manager(movieManager):
     """Execute the main workflow for movie management."""
     try:
         movieManager.start()
-        movieManager.creating_temp_genres()
-        movieManager.moving_to_temp()
-        movieManager.renaming_in_temp()
+        # movieManager.creating_temp_genres()
+        # movieManager.moving_to_temp()
+        # movieManager.renaming_in_temp()
         # movieManager.moving_to_vose()
         # movieManager.deleting_temp()
         logger.info("Workflow completed successfully.")
@@ -128,7 +128,7 @@ def run_movie_manager(movieManager):
 if __name__ == "__main__":
     try:
         # Initialize services
-        movieManager = initialize_services()
+        movieManager = initialize_movie_manager_services()
 
         # Run the movie management workflow
         run_movie_manager(movieManager)
