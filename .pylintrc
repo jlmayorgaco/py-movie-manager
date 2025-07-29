@@ -1,0 +1,48 @@
+[MASTER]
+# Specify a configuration file.
+rcfile=
+
+# Python code to analyze
+init-hook='import sys; sys.path.append("./src")'
+
+# List of plugins to load
+load-plugins=pylint.extensions.mccabe, pylint.extensions.docparams
+
+[MESSAGES CONTROL]
+# Enable/Disable message categories
+disable=C0114, C0115, C0116, R0903, W0511
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=88
+
+# String used as indentation unit.
+indent-string='    '
+
+[TYPECHECK]
+# Ignore missing imports (e.g., third-party libraries)
+ignored-modules=numpy, pandas
+
+[REPORTS]
+# Do not display full reports
+reports=no
+
+[SPELLING]
+# Activate the spelling checker.
+spelling-dict=en_US
+
+[DESIGN]
+# Maximum number of arguments for a function/method
+max-args=5
+
+[LOGGING]
+# Format strings should use % formatting in logging
+logging-format-style=old
+
+[VARIABLES]
+# Disable errors for unused arguments
+dummy-variables-rgx=_.*|unused_.*
+
+[IMPORTS]
+# Ignore imports that are only used for type hinting
+ignored-classes=type, Union, Optional
