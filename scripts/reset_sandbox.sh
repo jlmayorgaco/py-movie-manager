@@ -65,22 +65,22 @@ create_movie_folder "$SANDBOX/__RAW__/[g-romance][d-mark-leon] Summer Heart" \
 
 # === VOSE FOLDERS (Partial copies) ===
 
-create_movie_folder "$SANDBOX/__VOSE__/[g-action][d-john-doe] Terminator Collection" \
+create_movie_folder "$SANDBOX/__VOSE__/ACTION/ Terminator Collection" \
   "Terminator 1 (1984).mkv"
 
-create_movie_folder "$SANDBOX/__VOSE__/[g-comedy][d-amy-smith] The Funny Pack" \
+create_movie_folder "$SANDBOX/__VOSE__/COMEDY/ The Funny Pack" \
   "Joke Parade (2001).mkv"
 
-create_movie_folder "$SANDBOX/__VOSE__/[g-drama][d-mike-lee] Emotional Ride" \
+create_movie_folder "$SANDBOX/__VOSE__/DRAMA/ Emotional Ride" \
   "Cry Again (2010).avi"
 
-create_movie_folder "$SANDBOX/__VOSE__/[g-documentary][d-jane-roberts] Nature's Truth" \
+create_movie_folder "$SANDBOX/__VOSE__/DOCUMENTARY/ Nature's Truth" \
   "Planet Wild (2020).mp4"
 
-create_movie_folder "$SANDBOX/__VOSE__/[g-horror][d-jack-blake] Haunted Tales" \
+create_movie_folder "$SANDBOX/__VOSE__/HORROR/ Haunted Tales" \
   "Midnight Screams (2008).mkv"
 
-create_movie_folder "$SANDBOX/__VOSE__/[g-romance][d-linda-tan] Love Happens" \
+create_movie_folder "$SANDBOX/__VOSE__/ROMANCE/ Love Happens" \
   "Kiss in Paris (2015).mp4"
 
 echo "✅ Sandbox reset and populated!"
