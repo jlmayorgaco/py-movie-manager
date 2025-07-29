@@ -1,0 +1,56 @@
+# ----------------------------------
+# Python
+# ----------------------------------
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.Python
+env/
+venv/
+ENV/
+VENV/
+.venv/
+.pytest_cache/
+pip-wheel-metadata/
+
+# Byte-compiled / optimized / DLL files
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs and debug
+*.log
+*.out
+*.err
+
+# ----------------------------------
+# Environment / Credentials
+# ----------------------------------
+.env
+config/config.json  # if it contains personal paths or dry_run
+
+# ----------------------------------
+# macOS
+# ----------------------------------
+.DS_Store
+
+# ----------------------------------
+# VSCode / IDEs
+# ----------------------------------
+.vscode/
+.idea/
+*.swp
+
+# ----------------------------------
+# Synology NAS test folders
+# ----------------------------------
+__TMM_TEMP__/
+__VOSE__/
+__RAW__/
+py-movie-manager-test/
