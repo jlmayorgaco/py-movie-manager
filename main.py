@@ -44,14 +44,14 @@ scalability, and maintainability.
 ## ------------------------------------------------------------------------------ ##
 
 ## ------------------------------------------------------------------------------ ##
-## ---- Dependencies ------------------------------------------------------------ ##
+## ---- PyMovieManager CLI Loader ---------------------------------------------- ##
 ## ------------------------------------------------------------------------------ ##
 import os
 import logging
+import argparse
 from dotenv import load_dotenv
 
 from config.GenresConfig import GenresEnum
-
 from src.domain.classes.ConfigClass import Config
 from src.domain.classes.ScrapperServiceIMDB import ScrapperServiceIMDB
 from src.domain.classes.FilterServiceDefaultClass import FilterServiceDefault
@@ -65,22 +65,16 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+## ------------------------------------------------------------------------------ ##
+## ---- Initialize Services ---------------------------------------------------- ##
 ## ------------------------------------------------------------------------------ ##
 
-
-def initialize_movie_manager_services():
+def initialize_movie_manager_services(config_path: str, os_type: str):
     """Initialize and configure all services."""
     try:
-        # Validate critical environment variables
-        source_dir = os.getenv("SOURCE_DIR")
-        target_dir = os.getenv("TARGET_DIR")
-        if not source_dir or not target_dir:
-            raise ValueError("SOURCE_DIR and TARGET_DIR must be set in the environment.")
-
-        # Config Service
-        cnfg = Config()
-        cnfg.setDirectorySource(source_dir)
-        cnfg.setDirectoryTarget(target_dir)
+        # Load configuration
+        cnfg = Config(config_path)
         cnfg.setGenres(GenresEnum)
 
         # Scrapper Service
@@ -94,8 +88,13 @@ def initialize_movie_manager_services():
         ff.setDirectorSearchTag(os.getenv("DIRECTOR_TAG", "[d-*]"))
 
         # File System Service
-        fs = FileSystemMacOS()
-        #fs = FileSystemSynologyOS()
+        if os_type == "synology":
+            fs = FileSystemSynologyOS()
+        elif os_type == "mac":
+            fs = FileSystemMacOS()
+        else:
+            raise ValueError(f"Unsupported OS: {os_type}")
+
         fs.setConfig(cnfg)
         fs.setFilter(ff)
 
@@ -116,33 +115,42 @@ def initialize_movie_manager_services():
 def run_movie_manager(movieManager):
     """Execute the main workflow for movie management."""
     try:
-
         movieManager.start()
-        logger.info("Workflow Start completed ")
+        logger.info("Workflow Start completed")
 
         movieManager.creating_temp_genres()
-        logger.info("Workflow creating_temp_genres completed ")
+        logger.info("Workflow creating_temp_genres completed")
 
         movieManager.moving_to_temp()
-        logger.info("Workflow moving_to_temp completed ")
+        logger.info("Workflow moving_to_temp completed")
 
         movieManager.renaming_in_temp()
-        logger.info("Workflow renaming_in_temp completed ")
+        logger.info("Workflow renaming_in_temp completed")
 
         movieManager.moving_to_vose()
-        
-        # movieManager.deleting_temp()
-        logger.info("Workflow completed successfully.")
+        logger.info("Workflow completed successfully")
+
     except Exception as e:
         logger.error(f"Workflow error: {e}")
 
 
-if __name__ == "__main__":
-    try:
-        # Initialize services
-        movieManager = initialize_movie_manager_services()
+## ------------------------------------------------------------------------------ ##
+## ---- Entry Point with CLI Arguments ----------------------------------------- ##
+## ------------------------------------------------------------------------------ ##
 
-        # Run the movie management workflow
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="PyMovieManager Runner")
+    parser.add_argument("--sandbox", action="store_true", help="Use sandbox config")
+    parser.add_argument("--os", choices=["mac", "synology"], default="mac", help="Operating system environment")
+
+    args = parser.parse_args()
+
+    config_file = "config/config.sandbox.json" if args.sandbox else "config/config.json"
+
+    logger.info(f"▶️ Starting PyMovieManager [OS: {args.os}] [Config: {config_file}]")
+
+    try:
+        movieManager = initialize_movie_manager_services(config_file, args.os)
         run_movie_manager(movieManager)
     except Exception as e:
-        logger.error(f"An error occurred: {e}")
+        logger.error(f"❌ Fatal error: {e}")
