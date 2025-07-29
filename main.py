@@ -56,6 +56,7 @@ from src.domain.classes.ConfigClass import Config
 from src.domain.classes.ScrapperServiceIMDB import ScrapperServiceIMDB
 from src.domain.classes.FilterServiceDefaultClass import FilterServiceDefault
 from src.domain.classes.FileSystemMacOSClass import FileSystemMacOS
+from src.domain.classes.FileSystemSynologyOSClass import FileSystemSynologyOS
 from src.domain.classes.MovieManagerClass import MovieManager
 
 # Load environment variables from .env file
@@ -94,6 +95,7 @@ def initialize_movie_manager_services():
 
         # File System Service
         fs = FileSystemMacOS()
+        #fs = FileSystemSynologyOS()
         fs.setConfig(cnfg)
         fs.setFilter(ff)
 
@@ -114,11 +116,21 @@ def initialize_movie_manager_services():
 def run_movie_manager(movieManager):
     """Execute the main workflow for movie management."""
     try:
+
         movieManager.start()
-        # movieManager.creating_temp_genres()
-        # movieManager.moving_to_temp()
-        # movieManager.renaming_in_temp()
-        # movieManager.moving_to_vose()
+        logger.info("Workflow Start completed ")
+
+        movieManager.creating_temp_genres()
+        logger.info("Workflow creating_temp_genres completed ")
+
+        movieManager.moving_to_temp()
+        logger.info("Workflow moving_to_temp completed ")
+
+        movieManager.renaming_in_temp()
+        logger.info("Workflow renaming_in_temp completed ")
+
+        movieManager.moving_to_vose()
+        
         # movieManager.deleting_temp()
         logger.info("Workflow completed successfully.")
     except Exception as e:
