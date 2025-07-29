@@ -1,5 +1,6 @@
 import unittest
-from ..config.GenresConfig import GenresEnum
+
+from config.GenresConfig import GenresEnum
 from src.domain.classes.ConfigClass import Config
 
 class TestConfig(unittest.TestCase):
