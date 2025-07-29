@@ -1,0 +1,6 @@
+{
+  "directory_raw": "/var/services/homes/walla/py-movie-manager/__sandbox__/__RAW__",
+  "directory_temp": "/var/services/homes/walla/py-movie-manager/__sandbox__/__TMM_TEMP__",
+  "directory_vose": "/var/services/homes/walla/py-movie-manager/__sandbox__/__VOSE__",
+  "dry_run": true
+}
