@@ -1,62 +1,62 @@
-from abc import abstractmethod
-from abc import ABCMeta
+from abc import abstractmethod, ABCMeta
+from typing import List
 from ..interfaces.IFilterServiceInterface import IFilterService
 from ..interfaces.IConfigInterface import IConfig
 
 class IFileSystem(metaclass=ABCMeta):
 
     @abstractmethod
-    def cd(path: str):
+    def cd(self, path: str):
         pass
 
     @abstractmethod
-    def back(path: str):
+    def back(self) -> str:
         pass
 
     @abstractmethod
-    def setConfig(config: IConfig) -> None:
+    def setConfig(self, config: IConfig) -> None:
         pass
 
     @abstractmethod
-    def getConfig() -> IConfig:
+    def getConfig(self) -> IConfig:
         pass
 
     @abstractmethod
-    def setFilter(service: IFilterService) -> None:
+    def setFilter(self, service: IFilterService) -> None:
         pass
 
     @abstractmethod
-    def getFilter() -> IFilterService:
+    def getFilter(self) -> IFilterService:
         pass
 
     @abstractmethod
-    def get_folder(folder_name: str) -> str:
+    def get_folder(self, folder_name: str) -> str:
         pass
 
     @abstractmethod
-    def create_folder(folder_name: str)-> int:
+    def create_folder(self, folder_name: str) -> int:
         pass
 
     @abstractmethod
-    def move_folder(origin_path, destination_path: str) -> int:
+    def move_folder(self, origin_path: str, destination_path: str) -> int:
         pass
 
     @abstractmethod
-    def delete_folder(folder_name: str) -> int:
+    def delete_folder(self, folder_name: str) -> int:
         pass
 
     @abstractmethod
-    def get_folders() -> list[str]:
+    def get_folders(self) -> List[str]:
         pass
 
     @abstractmethod
-    def create_folders() -> int:
+    def create_folders(self, folders: List[str]) -> int:
         pass
 
     @abstractmethod
-    def move_folders() -> int:
+    def move_folders(self, folders: List[str], destination_path: str) -> int:
         pass
 
     @abstractmethod
-    def delete_folders() -> int:
+    def delete_folders(self, folders: List[str]) -> int:
         pass
