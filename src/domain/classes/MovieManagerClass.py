@@ -1,158 +1,319 @@
-from enum import Enum
-
-from ..interfaces.IMovieManagerInterface import IMovieManager
-from ..classes.ConfigClass import Config
-
+import os
+from src.domain.interfaces.IMovieManagerInterface import IMovieManager
+from src.domain.classes.ConfigClass import Config
+import logging
+from tqdm import tqdm  # ✅ Import tqdm for progress bar
 class MovieManager(IMovieManager):
+    """
+    MovieManager: A service to organize and manage movie files based on genres.
+    """
+
+    # Constants
+    TEMP_DIR_NAME = "__TMM_TEMP__"
 
     def __init__(self):
+        """
+        Initialize the MovieManager with default services.
+        """
         self.configService = None
         self.scrapperService = None
         self.filterService = None
         self.fileSystemService = None
 
-    def __str__(self):
-        return f'''
+    def __str__(self) -> str:
+        """
+        String representation of the configured services.
+        """
+        return f"""
         MovieManager::ConfigService <{self.configService}>
-
         MovieManager::ScrapperService <{self.scrapperService}>
-
         MovieManager::FilterService <{self.filterService}>
-
         MovieManager::FileSystemService <{self.fileSystemService}>
-        '''
+        """
 
-    def setServiceConfig(self, configService: Config):
+    # Setter methods for services
+    def setServiceConfig(self, configService: Config) -> None:
         self.configService = configService
-        return 1
 
-    def setServiceFilter(self, filterService):
+    def setServiceFilter(self, filterService) -> None:
         self.filterService = filterService
-        return 1
 
-    def setServiceFileSystem(self, filesystemService):
+    def setServiceFileSystem(self, filesystemService) -> None:
         self.fileSystemService = filesystemService
-        return 1
 
-    def setServiceScrapper(self, scrapperService):
+    def setServiceScrapper(self, scrapperService) -> None:
         self.scrapperService = scrapperService
-        return 1
 
-    def start(self):
+    # Core workflow methods
+    def start(self) -> None:
+        """
+        Initialize the workflow by navigating to the RAW directory and setting up TEMP.
+        """
+        logger = logging.getLogger(__name__)
+        raw_path = self.configService.getDirectorySource()
+        temp_path = self._get_temp_path(raw_path)
 
-        # Movin to RAW directory
-        temp_dir = '__TMM_TEMP__'
-        path_raw = self.configService.directory_raw
-        path_vose = self.configService.directory_vose
-        path_temp = path_raw + '/../' + temp_dir
+        self.fileSystemService.cd(raw_path)
+        self._prepare_temp_directory(temp_path)
 
-        self.fileSystemService.cd(path_raw)
+    def creating_temp_genres(self) -> None:
+        """
+        Create genre directories in the TEMP directory.
+        """
+        logger = logging.getLogger(__name__)
+        print("STEP::1 .... creating_temp_genres")
+        
+        # ✅ Use the getter method instead of a non-existent attribute
+        temp_path = self._get_temp_path(self.configService.getDirectorySource())  
+        logger.info(f"Temp path resolved: {temp_path}")
 
-        # Creating TEMP folder
-        self.fileSystemService.cd('..')
+        if not self.fileSystemService:
+            logger.error("File system service is not initialized!")
+            return
 
-        #self.fileSystemService.rmdir(temp_dir)
-        #print(' __TEMP__ Deleted')
-    
-        #self.fileSystemService.mkdir(temp_dir)
-        #print(' __TEMP__ Created')
+        self.fileSystemService.ensure_directory_exists(temp_path)
+        logger.info(f"Ensured temp directory exists: {temp_path}")
 
-        self.fileSystemService.cd(temp_dir)
-        print(' cd to __TEMP__')
-        return 1
-    def creating_temp_genres(self):
+        # ✅ Change to the temp directory
+        try:
+            self.fileSystemService.cd(temp_path)
+            logger.info(f"Changed working directory to: {temp_path}")
+        except Exception as e:
+            logger.error(f"Failed to change directory to {temp_path}: {e}")
+            return
 
-        print(' STEP::1 .... creating_temp ')
-
-        temp_dir = '__TMM_TEMP__'
-        path_raw = self.configService.directory_raw
-        path_vose = self.configService.directory_vose
-        path_temp = path_raw + '/../' + temp_dir
-
-        # Go to Temp Directory
-        self.fileSystemService.cd(path_temp)
-
-        # Creating Genre Folders in TEMP
+        # ✅ Get genres and create folders
         genres = self.configService.getGenres()
-        try:
-            for genre in genres:
-                self.fileSystemService.mkdir(genre)  # Creating the directory
-                #print(f"Created directory for genre '{genre}' at '{temp_dir}'")
-        except OSError as e:
-            print(f"Failed to create genre directories: {e}")
+        logger.info(f"Genres to create: {genres}")
 
-        # Go Again to RAW Directory
-        self.fileSystemService.cd(path_raw)
-           # Go Again to RAW Directory
-        self.fileSystemService.cd(path_raw)
+        for genre in genres:
+            genre_path = os.path.join(temp_path, genre)
+            logger.info(f"Creating genre directory: {genre_path}")
+            
+            try:
+                self.fileSystemService.mkdir(genre)
+                logger.info(f"Successfully created genre directory: {genre_path}")
+            except OSError as e:
+                logger.error(f"Failed to create directory for genre '{genre}': {e}")
 
-        return 1
-    def moving_to_temp(self):
+    def moving_to_temp(self) -> None:
+        """
+        Move movie folders from RAW to TEMP, organizing by genre.
+        """
+        logger = logging.getLogger(__name__)
+        print("\nSTEP::2 .... moving_to_temp")
 
-        print(' STEP::2 .... moving_to_temp ')
+        # ✅ Get the correct RAW directory path
+        raw_path = self.configService.getDirectorySource()
+        temp_path = self._get_temp_path(raw_path)
 
-        temp_dir = '__TMM_TEMP__'
-        path_raw = self.configService.directory_raw
-        path_vose = self.configService.directory_vose
-        path_temp = path_raw + '/../' + temp_dir
-
-        # Loop over each folder and move to to respective genre
-        print(' .. Moving to ___TEMP___ ') 
+        # ✅ Change to RAW directory
+        self.fileSystemService.cd(raw_path)
         folders = self.fileSystemService.get_folders()
-        try:
-            for folder in folders:
+        folders_filtered = self.filterService.filter_folders(folders)  # ✅ Filter folders
 
-                # Move to Genre Folder
-                genre_by_folder = self.filterService.getGenreByFolderName(folder)
-                gender_by_most_likehood = self.filterService.getGenreByMostLikehood(genre_by_folder)
-                from_path = self.fileSystemService.join(path_raw, folder)
-                to_path = self.fileSystemService.join(path_temp,gender_by_most_likehood)
-                self.fileSystemService.move(from_path, to_path)
+        total_folders = len(folders_filtered)
+        logger.info(f"Found {len(folders)} folders in RAW, {total_folders} valid for processing.")
 
-        except OSError as e:
-            print(f"Failed to moves moves to genre directories: {e}")
-    def renaming_in_temp(self):
+        # ✅ Enable preview mode (change to False to actually move)
+        preview = True  
 
-        print(' STEP::3 .... renaming_in_temp ')
+        # ✅ Use tqdm for a progress bar
+        with tqdm(total=total_folders, desc="Moving Folders", unit="folder") as pbar:
+            for index, folder in enumerate(folders_filtered, start=1):
+                # ✅ Get genre from the filter service
+                genre_from_folder = self.filterService.getGenreByFolderName(folder)
+                most_likely_genre = self.filterService.getGenreByMostLikehood(genre_from_folder)
 
-        temp_dir = '__TMM_TEMP__'
-        path_raw = self.configService.directory_raw
-        path_vose = self.configService.directory_vose
-        path_temp = path_raw + '/../' + temp_dir
+                # ✅ Skip folder if no genre is detected
+                if not most_likely_genre:
+                    logger.info(f"Skipping folder '{folder}': No matching genre found.")
+                    pbar.update(1)
+                    continue
 
-        # Move fron Genre Folder to VOSE Folders 1412 164 = 
-        print(' .. Cleaning Names ')
-        self.fileSystemService.cd(path_temp)
-        genre_folders = self.fileSystemService.get_folders()
-        try:
-            for genre_folder in genre_folders:
-                self.fileSystemService.cd(genre_folder)
-                self.fileSystemService.rmdir('.deletedByTMM')
-                movies = self.fileSystemService.get_folders()
+                # ✅ Build source and destination paths
+                from_path = self.fileSystemService.join(raw_path, folder)
+                to_path = self.fileSystemService.join(temp_path, most_likely_genre)
+
+                # ✅ Log progress with folder count
+                logger.info(f"Processing folder {index} of {total_folders}: Moving '{folder}' to '{most_likely_genre}'")
+
+                if preview:
+                    logger.info(f"DRY RUN: Would move '{folder}' to '{most_likely_genre}'")
+                else:
+                    try:
+                        self.fileSystemService.move(from_path, to_path)
+                        logger.info(f"Successfully moved '{folder}' to '{to_path}' ({index} of {total_folders})")
+                    except OSError as e:
+                        logger.error(f"Failed to move '{folder}' to TEMP: {e}")
+
+                # ✅ Update progress bar
+                pbar.update(1)
+
+    def renaming_in_temp(self) -> None:
+        """
+        Rename movie folders in TEMP to remove unnecessary tags while avoiding conflicts.
+        """
+        logger = logging.getLogger(__name__)
+        print("\nSTEP::3 .... renaming_in_temp")
+
+        # ✅ Get TEMP directory path
+        temp_path = self._get_temp_path(self.configService.getDirectorySource())
+
+        # ✅ Change to TEMP directory
+        self.fileSystemService.cd(temp_path)
+        genres = self.fileSystemService.get_folders()
+
+        logger.info(f"Found {len(genres)} genre folders in TEMP.")
+
+        # ✅ Use tqdm progress bar
+        with tqdm(total=len(genres), desc="Renaming Movies", unit="folder") as pbar:
+            for genre in genres:
+                genre_path = self.fileSystemService.join(temp_path, genre)
+                movies = self.fileSystemService.get_folders_at(genre_path)  # ✅ Get movie folders
+
+                logger.info(f"Processing genre '{genre}' with {len(movies)} movies.")
+
                 for movie in movies:
-                    prev_movie_name = movie
-                    new_movie_name = self.filterService.clean(movie)
-                    self.fileSystemService.rename(prev_movie_name, new_movie_name)
+                    new_name = self.filterService.clean(movie)
+                    old_path = self.fileSystemService.join(genre_path, movie)
+                    new_path = self.fileSystemService.join(genre_path, new_name)
 
-                # Go Back to __TEMP__
-                self.fileSystemService.cd('..')
+                    # ✅ If new name already exists, add a suffix
+                    counter = 1
+                    #while os.path.exists(new_path):
+                        #new_name = f"{self.filterService.clean(movie)} ({counter})"
+                        #new_path = self.fileSystemService.join(genre_path, new_name)
+                        #counter += 1
+
+                    # ✅ Skip if names are the same
+                    if old_path == new_path:
+                        logger.info(f"Skipping '{movie}', already correctly named.")
+                        continue
+
+                    try:
+                        # Check if old_path exists using fileSystemService
+                        if not self.fileSystemService.get_folders_at(os.path.dirname(old_path)):
+                            logger.warning(f"Skipping rename: '{old_path}' does not exist.")
+                            continue
+
+                        # Check if new_path already exists using fileSystemService
+                        if self.fileSystemService.get_folders_at(os.path.dirname(new_path)):
+                            logger.info(f"Skipping rename: '{new_path}' already exists.")
+                            continue
+
+                        # Rename using fileSystemService
+                        self.fileSystemService.rename(old_path, new_path)
+                        logger.info(f"Renamed '{movie}' -> '{new_name}'")
+
+                    except ValueError as ve:
+                        logger.error(f"Rename failed due to validation error: {ve}")
+                    except OSError as e:
+                        logger.error(f"Failed to rename '{movie}' to '{new_name}': {e}")
+
+
+                pbar.update(1)  # ✅ Update progress bar
+
+    def moving_to_vose(self) -> None:
+        """
+        Move genre folders from TEMP to VOSE directory, merging contents instead of replacing.
+        """
+        logger = logging.getLogger(__name__)
+        print("\nSTEP::4 .... moving_to_vose")
+
+        # ✅ Get TEMP and VOSE directories
+        temp_path = self._get_temp_path(self.configService.getDirectorySource())
+        vose_path = self.configService.getDirectoryTarget()  # ✅ Use correct getter method
+
+        # ✅ Ensure VOSE directory exists
+        self.fileSystemService.ensure_directory_exists(vose_path)
+
+        # ✅ Get all genre folders inside TEMP
+        genres = self.fileSystemService.get_folders_at(temp_path)
+        logger.info(f"Found {len(genres)} genre folders in TEMP.")
+
+        # ✅ Use tqdm progress bar
+        with tqdm(total=len(genres), desc="Merging Genres", unit="folder") as pbar:
+            for genre in genres:
+                from_genre_path = self.fileSystemService.join(temp_path, genre)
+                to_genre_path = self.fileSystemService.join(vose_path, genre)
+
+                # ✅ Ensure genre folder exists in VOSE
+                self.fileSystemService.ensure_directory_exists(to_genre_path)
+
+                # ✅ Get movie folders in the current genre
+                movies = self.fileSystemService.get_folders_at(from_genre_path)
+
+                logger.info(f"Merging '{genre}' genre with {len(movies)} movies.")
+
+                for movie in movies:
+                    from_movie_path = self.fileSystemService.join(from_genre_path, movie)
+                    to_movie_path = self.fileSystemService.join(to_genre_path, movie)
+
+                    # ✅ If movie already exists, overwrite it
+                    if os.path.exists(to_movie_path):
+                        logger.info(f"Overwriting existing movie: '{movie}' in VOSE.")
+                        continue
+                        #self.fileSystemService.rmdir(to_movie_path)  # Remove old folder
+
+                    try:
+                        self.fileSystemService.move(from_movie_path, to_movie_path)
+                        logger.info(f"Successfully moved '{movie}' to '{to_movie_path}'.")
+                    except OSError as e:
+                        logger.error(f"Failed to move '{movie}' to VOSE: {e}")
+
+                pbar.update(1)  # ✅ Update progress bar
+    def deleting_temp(self) -> None:
+        """
+        Delete the TEMP directory after processing.
+        """
+        print("STEP::5 .... deleting_temp")
+        temp_path = self._get_temp_path(self.configService.getDirectorySource())  # ✅ Correct
+
+        try:
+            self.fileSystemService.rmdir(temp_path)
         except OSError as e:
-            print(f"Failed to moves moves to genre directories: {e}")
-    def moving_to_vose(self):
+            print(f"Failed to delete TEMP directory: {e}")
 
-        print(' STEP::4 .... moving_to_vose ')
+    # Private helper methods
+    def _prepare_temp_directory(self, temp_path: str) -> None:
+        """
+        Prepare the TEMP directory by ensuring it exists.
 
-        temp_dir = '__TMM_TEMP__'
-        path_raw = self.configService.directory_raw
-        path_vose = self.configService.directory_vose
-        path_temp = path_raw + '/../' + temp_dir
+        Args:
+            temp_path (str): Full path to the TEMP directory.
+        """
+        logger = logging.getLogger(__name__)
+        logger.info(f" @_prepare_temp_directory before => TEMP_DIR_NAME = {self.TEMP_DIR_NAME}")
+        print(f" @_prepare_temp_directory before => TEMP_DIR_NAME = {self.TEMP_DIR_NAME}")
 
-         # Move Genres to VOSE
-        genre_folders = self.fileSystemService.get_folders()
-        for genre_folder in genre_folders:
-            from_path = self.fileSystemService.join(path_temp, genre_folder)
-            to_path = self.fileSystemService.join(path_vose, '')
-            self.fileSystemService.move2(from_path, to_path)
+        parent_path = os.path.dirname(temp_path)  # Get the parent directory
 
-    def deleting_temp(self):
-        print(' STEP::5 .... deleting_temp ')
+        # Ensure the TEMP directory exists and remove it if needed
+        self.fileSystemService.cd(parent_path)  # ✅ Move to the parent directory
+        
+        try:
+            if self.fileSystemService.get_folders().__contains__(self.TEMP_DIR_NAME):
+                logger.info(f"Removing existing TEMP directory: {temp_path}")
+                #self.fileSystemService.rmdir(self.TEMP_DIR_NAME)  # ✅ Remove TEMP directory if it exists
+                print(f" @_prepare_temp_directory after remove => TEMP_DIR_NAME = {self.TEMP_DIR_NAME}")
+        except OSError:
+            pass  # Ignore errors if the directory doesn't exist
+
+        logger.info(f"Creating TEMP directory: {temp_path}")
+        self.fileSystemService.ensure_directory_exists(temp_path)  # ✅ Ensure TEMP exists
+        self.fileSystemService.cd(temp_path)  # ✅ Navigate to TEMP
+            
+    def _get_temp_path(self, base_path: str) -> str:
+        """
+        Build the TEMP directory path at the same level as RAW.
+
+        Args:
+            base_path (str): The RAW directory path.
+
+        Returns:
+            str: Full absolute path to the TEMP directory.
+        """
+        raw_parent = os.path.dirname(base_path)  # ✅ Get the parent directory of RAW
+        temp_path = self.fileSystemService.join(raw_parent, self.TEMP_DIR_NAME)  # ✅ Place TEMP next to RAW
+        return os.path.abspath(temp_path)  # ✅ Ensure it's an absolute path
