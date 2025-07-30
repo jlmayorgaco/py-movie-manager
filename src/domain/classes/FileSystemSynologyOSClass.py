@@ -89,7 +89,7 @@ class FileSystemSynologyOS(IFileSystem):
 
         abs_from = os.path.abspath(from_path)
         abs_to = os.path.abspath(to_path)
-        destination = os.path.join(abs_to, os.path.basename(abs_from))
+        destination = abs_to
 
         if not os.path.exists(abs_from):
             raise ValueError(f"Source path does not exist: {abs_from}")
