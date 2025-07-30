@@ -1,6 +1,6 @@
 {
-  "directory_raw": "/volume2//DX517/Movies/[Movies] Filmoteca/[Movies] Filmoteca VOSE RAW/RAW",
+  "directory_raw": "/volume2//DX517/Movies/[Movies] Filmoteca/[Movies] Filmoteca VOSE RAW/RAW 2",
   "directory_temp": "/volume2//DX517/Movies/[Movies] Filmoteca/[Movies] Filmoteca VOSE RAW/__TMM_TEMP__",
-  "directory_vose": "/DX517/Movies/[Movies] Filmoteca/[Movies] Filmoteca VOSE",
-  "dry_run": true
+  "directory_vose": "/DX517/Movies/[Movies] Filmoteca/[Movies] Filmoteca VOSE 2",
+  "dry_run": false
 }
