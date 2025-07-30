@@ -90,7 +90,7 @@ class FileSystemSynologyOS(IFileSystem):
 
         abs_from = os.path.abspath(from_path)
         abs_to = os.path.abspath(to_path)
-        destination = abs_to  # ✅ We now move *into* the target directory directly, no nested folders.
+        destination = os.path.join(abs_to, os.path.basename(abs_from))
 
         print(f"[MOVE] from: {abs_from}")
         print(f"[MOVE] to:   {abs_to}")
