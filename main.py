@@ -78,10 +78,11 @@ def initialize_movie_manager_services(config_path: str, os_type: str):
 
         logger.info(f"🧾 Loaded config from: {config_path}")
         logger.info("🔧 Config values:")
-        logger.info(f"  directory_raw  : {cnfg.directory_raw}")
-        logger.info(f"  directory_temp : {cnfg.directory_temp}")
-        logger.info(f"  directory_vose : {cnfg.directory_vose}")
-        logger.info(f"  dry_run        : {cnfg.dry_run}")
+        logger.info(f"  directory_raw  : {cnfg.getDirectorySource()}")
+        logger.info(f"  directory_temp : {cnfg.getDirectoryTemp()}")
+        logger.info(f"  directory_vose : {cnfg.getDirectoryTarget()}")
+        logger.info(f"  dry_run        : {cnfg.is_dry_run()}")
+
 
             # Scrapper Service
         imdb = ScrapperServiceIMDB()
@@ -124,7 +125,7 @@ def initialize_movie_manager_services(config_path: str, os_type: str):
 def run_movie_manager(movieManager):
     """Execute the main workflow for movie management."""
     try:
-        logger.info(f"🚦 DRY RUN MODE = {movieManager.config.get('dry_run')}")
+        logger.info(f"🚦 DRY RUN MODE = {movieManager.config.is_dry_run()}")
 
         movieManager.start()
         logger.info("✅ Workflow start completed")
