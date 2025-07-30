@@ -61,38 +61,38 @@ class MovieManager(IMovieManager):
         Create genre directories in the TEMP directory.
         """
         logger = logging.getLogger(__name__)
-        print("STEP::1 .... creating_temp_genres")
+        #print("STEP::1 .... creating_temp_genres")
         
         # ✅ Use the getter method instead of a non-existent attribute
         temp_path = self._get_temp_path(self.configService.getDirectorySource())  
-        logger.info(f"Temp path resolved: {temp_path}")
+        #logger.info(f"Temp path resolved: {temp_path}")
 
         if not self.fileSystemService:
             logger.error("File system service is not initialized!")
             return
 
         self.fileSystemService.ensure_directory_exists(temp_path)
-        logger.info(f"Ensured temp directory exists: {temp_path}")
+        #logger.info(f"Ensured temp directory exists: {temp_path}")
 
         # ✅ Change to the temp directory
         try:
             self.fileSystemService.cd(temp_path)
-            logger.info(f"Changed working directory to: {temp_path}")
+            #logger.info(f"Changed working directory to: {temp_path}")
         except Exception as e:
             logger.error(f"Failed to change directory to {temp_path}: {e}")
             return
 
         # ✅ Get genres and create folders
         genres = self.configService.getGenres()
-        logger.info(f"Genres to create: {genres}")
+        #logger.info(f"Genres to create: {genres}")
 
         for genre in genres:
             genre_path = os.path.join(temp_path, genre)
-            logger.info(f"Creating genre directory: {genre_path}")
+            #logger.info(f"Creating genre directory: {genre_path}")
             
             try:
                 self.fileSystemService.mkdir(genre)
-                logger.info(f"Successfully created genre directory: {genre_path}")
+                #logger.info(f"Successfully created genre directory: {genre_path}")
             except OSError as e:
                 logger.error(f"Failed to create directory for genre '{genre}': {e}")
 
@@ -103,53 +103,40 @@ class MovieManager(IMovieManager):
         logger = logging.getLogger(__name__)
         print("\n\n\n\nSTEP::2 .... moving_to_temp\n\n\n\n")
 
-        # ✅ Get the correct RAW directory path
         raw_path = self.configService.getDirectorySource()
         temp_path = self._get_temp_path(raw_path)
 
-        # ✅ Change to RAW directory
         self.fileSystemService.cd(raw_path)
         folders = self.fileSystemService.get_folders()
-        folders_filtered = self.filterService.filter_folders(folders)  # ✅ Filter folders
+        folders_filtered = self.filterService.filter_folders(folders)
 
         total_folders = len(folders_filtered)
         logger.info(f"Found {len(folders)} folders in RAW, {total_folders} valid for processing.")
 
-        # ✅ Enable preview mode (change to False to actually move)
-        preview = False  
-
-        # ✅ Use tqdm for a progress bar
         with tqdm(total=total_folders, desc="Moving Folders", unit="folder") as pbar:
             for index, folder in enumerate(folders_filtered, start=1):
-                # ✅ Get genre from the filter service
                 genre_from_folder = self.filterService.getGenreByFolderName(folder)
                 most_likely_genre = self.filterService.getGenreByMostLikehood(genre_from_folder)
 
-                # ✅ Skip folder if no genre is detected
                 if not most_likely_genre:
                     logger.info(f"Skipping folder '{folder}': No matching genre found.")
                     pbar.update(1)
                     continue
 
-                # ✅ Build source and destination paths
                 clean_name = self.filterService.clean_folder_name(folder)
                 from_path = self.fileSystemService.join(raw_path, folder)
                 to_path = self.fileSystemService.join(temp_path, most_likely_genre, clean_name)
 
-                # ✅ Log progress with folder count
                 logger.info(f"Processing folder {index} of {total_folders}: Moving '{folder}' to '{most_likely_genre}'")
 
-                if preview:
-                    logger.info(f"DRY RUN: Would move '{folder}' to '{most_likely_genre}'")
-                else:
-                    try:
-                        self.fileSystemService.move(from_path, to_path)
-                        logger.info(f"Successfully moved '{folder}' to '{to_path}' ({index} of {total_folders})")
-                    except OSError as e:
-                        logger.error(f"Failed to move '{folder}' to TEMP: {e}")
+                try:
+                    self.fileSystemService.move(from_path, to_path)
+                    logger.info(f"Moved '{folder}' to '{to_path}' ({index} of {total_folders})")
+                except OSError as e:
+                    logger.error(f"Failed to move '{folder}' to TEMP: {e}")
 
-                # ✅ Update progress bar
                 pbar.update(1)
+
 
     def renaming_in_temp(self) -> None:
         """
