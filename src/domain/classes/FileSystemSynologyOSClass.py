@@ -86,31 +86,19 @@ class FileSystemSynologyOS(IFileSystem):
 
     def move(self, from_path: str, to_path: str) -> None:
         abs_from = os.path.abspath(from_path)
-        abs_to = os.path.abspath(to_path)
-        destination = os.path.join(abs_to, os.path.basename(abs_from))
+        abs_to = os.path.join(os.path.abspath(to_path), os.path.basename(abs_from))
 
         if not os.path.exists(abs_from):
             raise ValueError(f"Source path does not exist: {abs_from}")
 
-        self.ensure_directory_exists(abs_to)
+        self.ensure_directory_exists(os.path.dirname(abs_to))
 
         if self._config_service.is_dry_run():
-            print(f"[DRY RUN] Would move: {abs_from} → {destination}")
+            print(f"[DRY RUN] Would move: {abs_from} → {abs_to}")
             return
 
-        if os.path.isdir(abs_from):
-            if not os.path.exists(destination):
-                shutil.copytree(abs_from, destination)
-            else:
-                for root, _, files in os.walk(abs_from):
-                    target_dir = os.path.join(destination, os.path.relpath(root, abs_from))
-                    self.ensure_directory_exists(target_dir)
-                    for file in files:
-                        shutil.copy2(os.path.join(root, file), os.path.join(target_dir, file))
-            shutil.rmtree(abs_from)
-        else:
-            shutil.copy2(abs_from, destination)
-            os.remove(abs_from)
+        shutil.move(abs_from, abs_to)
+
 
     def join(self, *paths) -> str:
         return os.path.join(*paths)
