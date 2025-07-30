@@ -87,7 +87,7 @@ def initialize_movie_manager_services(config_path: str, os_type: str):
             # Scrapper Service
         imdb = ScrapperServiceIMDB()
         imdb.setApiKey(os.getenv("IMDB_API_KEY", "default_api_key"))
-        logger.info(f"🔑 IMDb API key loaded: {imdb.api_key}")
+        logger.info(f"🎬 IMDb API Key: {imdb.apiKey}")
 
         # Filter Service
         ff = FilterServiceDefault()
