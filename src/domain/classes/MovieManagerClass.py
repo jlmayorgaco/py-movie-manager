@@ -132,8 +132,9 @@ class MovieManager(IMovieManager):
                     continue
 
                 # ✅ Build source and destination paths
+                clean_name = self.filterService.clean_folder_name(folder)
                 from_path = self.fileSystemService.join(raw_path, folder)
-                to_path = self.fileSystemService.join(temp_path, most_likely_genre)
+                to_path = self.fileSystemService.join(temp_path, most_likely_genre, clean_name)
 
                 # ✅ Log progress with folder count
                 logger.info(f"Processing folder {index} of {total_folders}: Moving '{folder}' to '{most_likely_genre}'")

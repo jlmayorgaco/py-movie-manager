@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from typing import List, Optional
 from src.domain.interfaces.IFileSystemInterface import IFileSystem
@@ -233,3 +234,14 @@ class FileSystemSynologyOS(IFileSystem):
         Check if a file or directory exists at the given path.
         """
         return os.path.exists(path)
+    
+
+    def clean_folder_name(self, name: str) -> str:
+        """
+        Remove [g-*], [d-*], and similar tags from the folder name.
+        """
+        # Remove tags like [g-Animation] or [d-John Smith]
+        cleaned = re.sub(r"\[.*?\]", "", name)
+        # Remove extra spaces
+        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+        return cleaned
