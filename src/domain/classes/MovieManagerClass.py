@@ -213,6 +213,7 @@ class MovieManager(IMovieManager):
     def moving_to_vose(self) -> None:
         """
         Move genre folders from TEMP to VOSE directory, merging contents instead of replacing.
+        If a folder already exists and has conflicting content (e.g., same movie folder, partial files), the process will stop with an error.
         """
         logger = logging.getLogger(__name__)
         print("\nSTEP::4 .... moving_to_vose")
@@ -239,26 +240,23 @@ class MovieManager(IMovieManager):
 
                 # ✅ Get movie folders in the current genre
                 movies = self.fileSystemService.get_folders_at(from_genre_path)
-
                 logger.info(f"Merging '{genre}' genre with {len(movies)} movies.")
 
                 for movie in movies:
                     from_movie_path = self.fileSystemService.join(from_genre_path, movie)
                     to_movie_path = self.fileSystemService.join(to_genre_path, movie)
 
-                    # ✅ If movie already exists, overwrite it
-                    if os.path.exists(to_movie_path):
-                        logger.info(f"Overwriting existing movie: '{movie}' in VOSE.")
-                        continue
-                        #self.fileSystemService.rmdir(to_movie_path)  # Remove old folder
-
                     try:
                         self.fileSystemService.move(from_movie_path, to_movie_path)
-                        logger.info(f"Successfully moved '{movie}' to '{to_movie_path}'.")
+                        logger.info(f"✅ Successfully moved '{movie}' to '{to_movie_path}'.")
+                    except RuntimeError as e:
+                        logger.critical(f"❌ Merge conflict detected for '{movie}': {e}")
+                        raise  # ⛔ Stop the entire process
                     except OSError as e:
-                        logger.error(f"Failed to move '{movie}' to VOSE: {e}")
+                        logger.error(f"⚠️ Failed to move '{movie}' to VOSE: {e}")
 
                 pbar.update(1)  # ✅ Update progress bar
+
     def deleting_temp(self) -> None:
         """
         Delete the TEMP directory after processing.
