@@ -99,34 +99,41 @@ class FileSystemSynologyOS(IFileSystem):
             return
 
         if os.path.isdir(abs_from):
-            self.ensure_directory_exists(destination)
+            if not os.path.exists(destination):
+                shutil.copytree(abs_from, destination)
+                print(f"✅ Full folder copied: {abs_from} → {destination}")
+            else:
+                # Folder exists, merge contents
+                for root, _, files in os.walk(abs_from):
+                    rel_path = os.path.relpath(root, abs_from)
+                    target_dir = os.path.join(destination, rel_path)
+                    self.ensure_directory_exists(target_dir)
 
-            for root, _, files in os.walk(abs_from):
-                relative_path = os.path.relpath(root, abs_from)
-                target_dir = os.path.join(destination, relative_path)
-                self.ensure_directory_exists(target_dir)
+                    for file in files:
+                        src_file = os.path.join(root, file)
+                        dest_file = os.path.join(target_dir, file)
 
-                for file in files:
-                    source_file = os.path.join(root, file)
-                    dest_file = os.path.join(target_dir, file)
+                        try:
+                            if not os.path.exists(dest_file):
+                                shutil.copy2(src_file, dest_file)
+                                print(f"✅ Copied new file: {src_file} → {dest_file}")
+                            else:
+                                print(f"⏩ Skipped (already exists): {dest_file}")
+                        except Exception as e:
+                            print(f"❌ Error copying {src_file} → {dest_file}: {e}")
 
-                    if os.path.exists(dest_file):
-                        print(f"[SKIP] {file} already exists in {target_dir}. Keeping original in TEMP.")
-                        continue
-
-                    shutil.copy2(source_file, dest_file)
-
-            # If all files moved or skipped, we can delete original folder
+            # Finally, remove the source folder
             shutil.rmtree(abs_from)
+            print(f"🗑️ Removed original folder: {abs_from}")
         else:
-            destination_file = os.path.join(destination, os.path.basename(abs_from))
-
-            if os.path.exists(destination_file):
-                print(f"[SKIP] File {destination_file} already exists. Keeping original.")
-                return
-
-            shutil.copy2(abs_from, destination_file)
+            dest_file = os.path.join(abs_to, os.path.basename(abs_from))
+            if not os.path.exists(dest_file):
+                shutil.copy2(abs_from, dest_file)
+                print(f"✅ Copied file: {abs_from} → {dest_file}")
+            else:
+                print(f"⏩ Skipped (already exists): {dest_file}")
             os.remove(abs_from)
+            print(f"🗑️ Removed original file: {abs_from}")
 
 
     def join(self, *paths) -> str:
