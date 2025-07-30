@@ -84,10 +84,13 @@ class FileSystemSynologyOS(IFileSystem):
         for folder in folders:
             self.move(folder, destination_path)
 
+
     def move(self, from_path: str, to_path: str) -> None:
         abs_from = os.path.abspath(from_path)
         abs_to = os.path.abspath(to_path)
         destination = os.path.join(abs_to, os.path.basename(abs_from))
+
+        print(f"📦 move() called from: {abs_from} → {destination}")
 
         if not os.path.exists(abs_from):
             raise ValueError(f"Source path does not exist: {abs_from}")
@@ -103,7 +106,7 @@ class FileSystemSynologyOS(IFileSystem):
                 shutil.copytree(abs_from, destination)
                 print(f"✅ Full folder copied: {abs_from} → {destination}")
             else:
-                # Folder exists, merge contents
+                # Merge contents
                 for root, _, files in os.walk(abs_from):
                     rel_path = os.path.relpath(root, abs_from)
                     target_dir = os.path.join(destination, rel_path)
@@ -112,7 +115,7 @@ class FileSystemSynologyOS(IFileSystem):
                     for file in files:
                         src_file = os.path.join(root, file)
                         dest_file = os.path.join(target_dir, file)
-
+                        print(f"🔍 Checking: {src_file} → {dest_file}")
                         try:
                             if not os.path.exists(dest_file):
                                 shutil.copy2(src_file, dest_file)
@@ -122,11 +125,15 @@ class FileSystemSynologyOS(IFileSystem):
                         except Exception as e:
                             print(f"❌ Error copying {src_file} → {dest_file}: {e}")
 
-            # Finally, remove the source folder
-            shutil.rmtree(abs_from)
-            print(f"🗑️ Removed original folder: {abs_from}")
+            # Only remove original folder if everything completed
+            try:
+                shutil.rmtree(abs_from)
+                print(f"🗑️ Removed original folder: {abs_from}")
+            except Exception as e:
+                print(f"❌ Error deleting original folder {abs_from}: {e}")
         else:
             dest_file = os.path.join(abs_to, os.path.basename(abs_from))
+            print(f"🔍 File mode: {abs_from} → {dest_file}")
             if not os.path.exists(dest_file):
                 shutil.copy2(abs_from, dest_file)
                 print(f"✅ Copied file: {abs_from} → {dest_file}")
@@ -134,7 +141,6 @@ class FileSystemSynologyOS(IFileSystem):
                 print(f"⏩ Skipped (already exists): {dest_file}")
             os.remove(abs_from)
             print(f"🗑️ Removed original file: {abs_from}")
-
 
     def join(self, *paths) -> str:
         return os.path.join(*paths)
