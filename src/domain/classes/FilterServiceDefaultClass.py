@@ -148,10 +148,8 @@ class FilterServiceDefault(IFilterService):
     
     def clean_folder_name(self, name: str) -> str:
         """
-        Remove [g-*], [d-*], and similar tags from the folder name.
+        Remove [g-*] and [d-*] tags from folder names.
         """
-        # Remove tags like [g-Animation] or [d-John Smith]
-        cleaned = re.sub(r"\[.*?\]", "", name)
-        # Remove extra spaces
-        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
-        return cleaned
+        cleaned = re.sub(r"\[.*?\]", "", name)        # remove any [g-*], [d-*], etc
+        cleaned = re.sub(r"\s{2,}", " ", cleaned)      # remove extra spaces
+        return cleaned.strip()
