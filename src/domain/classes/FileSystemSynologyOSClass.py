@@ -84,13 +84,18 @@ class FileSystemSynologyOS(IFileSystem):
         for folder in folders:
             self.move(folder, destination_path)
 
-    def move(self, from_path: str, to_path: str) -> None:
+    def move(self, from_path: str, to_path: str, preserve_folder_name: bool = True) -> None:
+
         import os
         import shutil
 
         abs_from = os.path.abspath(from_path)
         abs_to = os.path.abspath(to_path)
-        destination = os.path.join(abs_to, os.path.basename(abs_from))
+        destination = (
+            os.path.join(abs_to, os.path.basename(abs_from))
+            if preserve_folder_name
+            else abs_to
+        )
 
         print(f"[MOVE] from: {abs_from}")
         print(f"[MOVE] to:   {abs_to}")
