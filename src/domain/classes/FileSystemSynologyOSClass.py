@@ -236,12 +236,3 @@ class FileSystemSynologyOS(IFileSystem):
         return os.path.exists(path)
     
 
-    def clean_folder_name(self, name: str) -> str:
-        """
-        Remove [g-*], [d-*], and similar tags from the folder name.
-        """
-        # Remove tags like [g-Animation] or [d-John Smith]
-        cleaned = re.sub(r"\[.*?\]", "", name)
-        # Remove extra spaces
-        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
-        return cleaned
