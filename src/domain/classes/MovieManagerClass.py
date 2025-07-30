@@ -101,7 +101,7 @@ class MovieManager(IMovieManager):
         Move movie folders from RAW to TEMP, organizing by genre.
         """
         logger = logging.getLogger(__name__)
-        print("\nSTEP::2 .... moving_to_temp")
+        print("\n\n\n\nSTEP::2 .... moving_to_temp\n\n\n\n")
 
         # ✅ Get the correct RAW directory path
         raw_path = self.configService.getDirectorySource()
@@ -116,7 +116,7 @@ class MovieManager(IMovieManager):
         logger.info(f"Found {len(folders)} folders in RAW, {total_folders} valid for processing.")
 
         # ✅ Enable preview mode (change to False to actually move)
-        preview = True  
+        preview = False  
 
         # ✅ Use tqdm for a progress bar
         with tqdm(total=total_folders, desc="Moving Folders", unit="folder") as pbar:

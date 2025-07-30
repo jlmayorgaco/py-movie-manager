@@ -136,11 +136,11 @@ def run_movie_manager(movieManager):
         movieManager.moving_to_temp()
         logger.info("✅ Workflow moving_to_temp completed")
 
-        movieManager.renaming_in_temp()
-        logger.info("✅ Workflow renaming_in_temp completed")
+        #movieManager.renaming_in_temp()
+        #logger.info("✅ Workflow renaming_in_temp completed")
 
-        movieManager.moving_to_vose()
-        logger.info("✅ Workflow moving_to_vose completed")
+        #movieManager.moving_to_vose()
+        #logger.info("✅ Workflow moving_to_vose completed")
 
     except Exception as e:
         logger.error(f"❌ Workflow error: {e}")
