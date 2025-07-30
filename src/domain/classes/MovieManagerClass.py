@@ -242,7 +242,7 @@ class MovieManager(IMovieManager):
                                 src = os.path.join(from_movie_path, item)
                                 dst = os.path.join(to_movie_path, item)
                                 if os.path.exists(dst):
-                                    raise RuntimeError(f"Conflict: File already exists at '{dst}'")
+                                    continue
                                 shutil.move(src, dst)
                             os.rmdir(from_movie_path)
                         elif os.path.basename(from_movie_path) == os.path.basename(to_genre_path):
@@ -252,7 +252,7 @@ class MovieManager(IMovieManager):
                                 src = os.path.join(from_movie_path, item)
                                 dst = os.path.join(to_genre_path, item)
                                 if os.path.exists(dst):
-                                    raise RuntimeError(f"Conflict: File already exists at '{dst}'")
+                                    continue
                                 shutil.move(src, dst)
                             os.rmdir(from_movie_path)
                         else:
