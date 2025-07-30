@@ -85,24 +85,27 @@ class FileSystemSynologyOS(IFileSystem):
             self.move(folder, destination_path)
 
     def move(self, from_path: str, to_path: str) -> None:
+        import os
+        import shutil
+
         abs_from = os.path.abspath(from_path)
         abs_to = os.path.abspath(to_path)
+        destination = abs_to  # Avoid creating nested folders
 
         if not os.path.exists(abs_from):
             raise ValueError(f"Source path does not exist: {abs_from}")
 
-        self.ensure_directory_exists(abs_to)
+        self.ensure_directory_exists(destination)
 
         if self._config_service.is_dry_run():
-            print(f"[DRY RUN] Would move: {abs_from} → {abs_to}")
+            print(f"[DRY RUN] Would move: {abs_from} → {destination}")
             return
 
         if os.path.isdir(abs_from):
-            print(f"[MERGE] Merging folder: {abs_from} → {abs_to}")
-
+            # Merge directory content
             for root, _, files in os.walk(abs_from):
                 rel_path = os.path.relpath(root, abs_from)
-                target_dir = os.path.join(abs_to, rel_path)
+                target_dir = os.path.join(destination, rel_path)
                 self.ensure_directory_exists(target_dir)
 
                 for file in files:
@@ -115,17 +118,19 @@ class FileSystemSynologyOS(IFileSystem):
                         shutil.copy2(src_file, dest_file)
                         print(f"[COPY] {src_file} → {dest_file}")
 
+            # Remove the original folder after copying
             shutil.rmtree(abs_from)
             print(f"[DELETE] Removed original folder: {abs_from}")
 
-        elif os.path.isfile(abs_from):
-            dest_file = os.path.join(abs_to, os.path.basename(abs_from))
+        else:
+            # If it's a file, move directly
+            dest_file = os.path.join(destination, os.path.basename(abs_from))
             if os.path.exists(dest_file):
                 print(f"[SKIP] File already exists: {dest_file}")
             else:
                 shutil.copy2(abs_from, dest_file)
+                os.remove(abs_from)
                 print(f"[COPY] {abs_from} → {dest_file}")
-            os.remove(abs_from)
 
 
 
