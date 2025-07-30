@@ -199,3 +199,9 @@ class FileSystemSynologyOS(IFileSystem):
 
     def getConfig(self):
         return self._config_service
+    
+    def exists(self, path: str) -> bool:
+        """
+        Check if a file or directory exists at the given path.
+        """
+        return os.path.exists(path)
