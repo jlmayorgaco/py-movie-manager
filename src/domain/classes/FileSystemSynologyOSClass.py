@@ -155,95 +155,19 @@ class FileSystemSynologyOS(IFileSystem):
         Check if a file or directory exists at the given path.
         """
         return os.path.exists(path)
-    
-    def move(self, from_path: str, to_path: str, preserve_folder_name: bool = True) -> None:
-        import os
-        import shutil
+        
+    def move(self, from_path: str, to_path: str) -> None:
+        """
+        Move a directory or file to a new location.
+        If `from_path` is a folder and `to_path` is the desired final folder name, move contents there.
+        """
+        if os.path.isdir(from_path):
+            # Ensure parent of `to_path` exists
+            os.makedirs(os.path.dirname(to_path), exist_ok=True)
 
-        abs_from = os.path.abspath(from_path)
-        abs_to = os.path.abspath(to_path)
-
-        print(f"[MOVE] from: {abs_from}")
-        print(f"[MOVE] to:   {abs_to}")
-
-        # ✅ Abort if source doesn't exist
-        if not os.path.exists(abs_from):
-            raise ValueError(f"❌ Source path does not exist: {abs_from}")
-
-        # Determine destination intelligently
-        if preserve_folder_name:
-            basename = os.path.basename(abs_from)
-
-            # ⚠️ Fix for nested folder issue:
-            # If the folder contains only one subfolder with the same name, skip outer folder
-            if os.path.isdir(abs_from):
-                items = os.listdir(abs_from)
-                if (
-                    len(items) == 1
-                    and os.path.isdir(os.path.join(abs_from, items[0]))
-                    and items[0] == basename
-                ):
-                    print("[FIX] Detected nested folder structure. Skipping extra folder level.")
-                    abs_from = os.path.join(abs_from, items[0])
-                    basename = items[0]
-
-            destination = os.path.join(abs_to, basename)
+            # Move the whole folder (rename)
+            shutil.move(from_path, to_path)
         else:
-            destination = abs_to
-
-        print(f"[MOVE] final destination folder: {destination}")
-
-        # ✅ Make sure destination exists
-        self.ensure_directory_exists(destination)
-
-        # 🧪 DRY RUN check
-        if self._config_service.is_dry_run():
-            print(f"[DRY RUN] Would move: {abs_from} → {destination}")
-            return
-
-        copied = 0
-        skipped = 0
-
-        # ✅ CASE 1 — FROM is a directory
-        if os.path.isdir(abs_from):
-            print("[INFO] 📁 Source is a directory.")
-            print("[INFO] ⚠️ Merge strategy: Existing files are kept, only missing files are copied.")
-
-            for root, _, files in os.walk(abs_from):
-                rel_path = os.path.relpath(root, abs_from)
-                target_dir = os.path.join(destination, rel_path)
-
-                self.ensure_directory_exists(target_dir)
-
-                for file in files:
-                    src_file = os.path.join(root, file)
-                    dest_file = os.path.join(target_dir, file)
-
-                    if os.path.exists(dest_file):
-                        print(f"[SKIP] Already exists: {dest_file}")
-                        skipped += 1
-                    else:
-                        print(f"[COPY] {src_file} → {dest_file}")
-                        shutil.copy2(src_file, dest_file)
-                        copied += 1
-
-            print(f"[DELETE] Removing source directory after merge: {abs_from}")
-            shutil.rmtree(abs_from)
-
-        # ✅ CASE 2 — FROM is a file
-        else:
-            print("[INFO] 📄 Source is a single file.")
-            dest_file = os.path.join(destination, os.path.basename(abs_from))
-
-            if os.path.exists(dest_file):
-                print(f"[SKIP] Already exists: {dest_file}")
-                skipped += 1
-            else:
-                print(f"[COPY] {abs_from} → {dest_file}")
-                shutil.copy2(abs_from, dest_file)
-                os.remove(abs_from)
-                copied += 1
-
-        # ✅ Final Summary
-        print(f"[SUMMARY] ✅ Copied: {copied}, Skipped: {skipped}")
-
+            # It's a file — ensure destination directory exists
+            os.makedirs(os.path.dirname(to_path), exist_ok=True)
+            shutil.move(from_path, to_path)
