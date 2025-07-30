@@ -86,28 +86,26 @@ class FileSystemSynologyOS(IFileSystem):
 
 
     def move(self, from_path: str, to_path: str) -> None:
-
         abs_from = os.path.abspath(from_path)
         abs_to = os.path.abspath(to_path)
-        destination = os.path.join(abs_to, os.path.basename(abs_from))
 
         if not os.path.exists(abs_from):
             raise ValueError(f"Source path does not exist: {abs_from}")
 
-        self.ensure_directory_exists(abs_to)
+        self.ensure_directory_exists(os.path.dirname(abs_to))  # solo la carpeta padre
 
         if self._config_service.is_dry_run():
-            print(f"[DRY RUN] Would move: {abs_from} → {destination}")
+            print(f"[DRY RUN] Would move: {abs_from} → {abs_to}")
             return
 
         if os.path.isdir(abs_from):
-            if os.path.exists(destination):
+            if os.path.exists(abs_to):
                 # Revisar si hay archivos que no están en destino
                 missing_files = []
 
                 for root, _, files in os.walk(abs_from):
                     rel_path = os.path.relpath(root, abs_from)
-                    target_dir = os.path.join(destination, rel_path)
+                    target_dir = os.path.join(abs_to, rel_path)
 
                     for file in files:
                         dest_file = os.path.join(target_dir, file)
@@ -121,10 +119,10 @@ class FileSystemSynologyOS(IFileSystem):
                     raise RuntimeError("Merge conflict: destination folder exists but has missing files. Aborting.")
 
             # Si no hay conflicto, hacer el merge normal
-            self.ensure_directory_exists(destination)
+            self.ensure_directory_exists(abs_to)
             for root, _, files in os.walk(abs_from):
                 rel_path = os.path.relpath(root, abs_from)
-                target_dir = os.path.join(destination, rel_path)
+                target_dir = os.path.join(abs_to, rel_path)
                 self.ensure_directory_exists(target_dir)
 
                 for file in files:
@@ -139,17 +137,12 @@ class FileSystemSynologyOS(IFileSystem):
 
             shutil.rmtree(abs_from)
             print(f"[DELETE] Removed original folder: {abs_from}")
-
         else:
-            # Archivo individual
-            dest_file = os.path.join(abs_to, os.path.basename(abs_from))
-            if os.path.exists(dest_file):
-                print(f"[SKIP] File already exists: {dest_file}")
-            else:
-                shutil.copy2(abs_from, dest_file)
-                print(f"[COPY] {abs_from} → {dest_file}")
+            # Caso de archivo individual
+            if os.path.exists(abs_to):
+                raise RuntimeError(f"❌ File conflict: '{abs_to}' already exists")
+            shutil.copy2(abs_from, abs_to)
             os.remove(abs_from)
-
 
 
     def join(self, *paths) -> str:
