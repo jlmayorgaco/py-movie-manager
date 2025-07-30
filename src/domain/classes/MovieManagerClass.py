@@ -209,30 +209,24 @@ class MovieManager(IMovieManager):
         logger = logging.getLogger(__name__)
         print("\nSTEP::4 .... moving_to_vose")
 
-        # ✅ Get TEMP and VOSE directories
         temp_path = self._get_temp_path(self.configService.getDirectorySource())
         vose_path = self.configService.getDirectoryTarget()
 
-        # ✅ Ensure VOSE directory exists
         self.fileSystemService.ensure_directory_exists(vose_path)
 
-        # ✅ Get all genre folders inside TEMP
         genres = self.fileSystemService.get_folders_at(temp_path)
         logger.info(f"Found {len(genres)} genre folders in TEMP.")
 
-        # ✅ Use tqdm progress bar
         with tqdm(total=len(genres), desc="Merging Genres", unit="folder") as pbar:
             for genre in genres:
                 from_genre_path = self.fileSystemService.join(temp_path, genre)
                 to_genre_path = self.fileSystemService.join(vose_path, genre)
 
-                # ✅ Ensure genre folder exists in VOSE
                 self.fileSystemService.ensure_directory_exists(to_genre_path)
 
-                # ✅ Get movie folders in the current genre
                 movies = [
                     m for m in self.fileSystemService.get_folders_at(from_genre_path)
-                    if not m.startswith("@")  # Filter Synology metadata folders
+                    if not m.startswith("@")
                 ]
                 logger.info(f"Merging '{genre}' genre with {len(movies)} movies.")
 
@@ -242,26 +236,38 @@ class MovieManager(IMovieManager):
 
                     try:
                         if os.path.exists(to_movie_path):
-                            # 🧠 If folder exists, move its contents one by one
+                            # ✅ Avoid nested folder: move only content if folder name already exists
+                            logger.warning(f"⚠️ Folder '{movie}' already exists. Merging content...")
                             for item in os.listdir(from_movie_path):
                                 src = os.path.join(from_movie_path, item)
                                 dst = os.path.join(to_movie_path, item)
                                 if os.path.exists(dst):
                                     raise RuntimeError(f"Conflict: File already exists at '{dst}'")
                                 shutil.move(src, dst)
-                            os.rmdir(from_movie_path)  # Remove empty folder
+                            os.rmdir(from_movie_path)
+                        elif os.path.basename(from_movie_path) == os.path.basename(to_genre_path):
+                            # ✅ Folder name equals genre (e.g., ACTION/Terminator Collection/Terminator Collection)
+                            # => flatten it
+                            for item in os.listdir(from_movie_path):
+                                src = os.path.join(from_movie_path, item)
+                                dst = os.path.join(to_genre_path, item)
+                                if os.path.exists(dst):
+                                    raise RuntimeError(f"Conflict: File already exists at '{dst}'")
+                                shutil.move(src, dst)
+                            os.rmdir(from_movie_path)
                         else:
-                            # 🧠 Folder doesn't exist, move entire folder
+                            # ✅ Safe to move full folder
                             shutil.move(from_movie_path, to_movie_path)
 
-                        logger.info(f"✅ Successfully moved '{movie}' to '{to_movie_path}'.")
+                        logger.info(f"✅ Successfully merged '{movie}' into '{to_genre_path}'.")
                     except RuntimeError as e:
-                        logger.critical(f"❌ Merge conflict detected for '{movie}': {e}")
-                        raise  # Stop the entire process
+                        logger.critical(f"❌ Merge conflict for '{movie}': {e}")
+                        raise
                     except OSError as e:
                         logger.error(f"⚠️ Failed to move '{movie}' to VOSE: {e}")
 
                 pbar.update(1)
+
 
 
     def deleting_temp(self) -> None:
