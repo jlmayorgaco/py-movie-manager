@@ -86,18 +86,53 @@ class FileSystemSynologyOS(IFileSystem):
 
     def move(self, from_path: str, to_path: str) -> None:
         abs_from = os.path.abspath(from_path)
-        abs_to = os.path.join(os.path.abspath(to_path), os.path.basename(abs_from))
+        abs_to = os.path.abspath(to_path)
+        destination = os.path.join(abs_to, os.path.basename(abs_from))
 
         if not os.path.exists(abs_from):
             raise ValueError(f"Source path does not exist: {abs_from}")
 
-        self.ensure_directory_exists(os.path.dirname(abs_to))
+        self.ensure_directory_exists(abs_to)
 
         if self._config_service.is_dry_run():
-            print(f"[DRY RUN] Would move: {abs_from} → {abs_to}")
+            print(f"[DRY RUN] Would move: {abs_from} → {destination}")
             return
 
-        shutil.move(abs_from, abs_to)
+        if os.path.isdir(abs_from):
+            self.ensure_directory_exists(destination)
+
+            files_copied = False  # Flag to determine if something was moved
+
+            for root, _, files in os.walk(abs_from):
+                rel_path = os.path.relpath(root, abs_from)
+                target_dir = os.path.join(destination, rel_path)
+                self.ensure_directory_exists(target_dir)
+
+                for file in files:
+                    src_file = os.path.join(root, file)
+                    dst_file = os.path.join(target_dir, file)
+
+                    if not os.path.exists(dst_file):
+                        shutil.copy2(src_file, dst_file)
+                        print(f"[MOVED] {src_file} → {dst_file}")
+                        files_copied = True
+                    else:
+                        print(f"[SKIPPED] {file} already exists in {target_dir}")
+
+            if files_copied:
+                shutil.rmtree(abs_from)
+                print(f"[CLEANUP] Removed original: {abs_from}")
+            else:
+                print(f"[PRESERVED] Nothing new moved from: {abs_from}")
+        else:
+            dst_file = os.path.join(abs_to, os.path.basename(abs_from))
+            if not os.path.exists(dst_file):
+                shutil.copy2(abs_from, dst_file)
+                os.remove(abs_from)
+                print(f"[MOVED] File {abs_from} → {dst_file}")
+            else:
+                print(f"[SKIPPED] File already exists: {dst_file}")
+
 
 
     def join(self, *paths) -> str:
