@@ -90,20 +90,20 @@ class FileSystemSynologyOS(IFileSystem):
 
         abs_from = os.path.abspath(from_path)
         abs_to = os.path.abspath(to_path)
-        destination = abs_to  # 🧠 Avoid creating nested folders unnecessarily
+        destination = abs_to  # ✅ Avoid nested folders like "Terminator Collection/Terminator Collection"
 
         print(f"[MOVE] from: {abs_from}")
         print(f"[MOVE] to:   {abs_to}")
         print(f"[MOVE] final destination folder: {destination}")
 
-        # 🧠 Safety check: ensure source exists
+        # ✅ Check if source exists
         if not os.path.exists(abs_from):
             raise ValueError(f"❌ Source path does not exist: {abs_from}")
 
         # ✅ Ensure destination exists
         self.ensure_directory_exists(destination)
 
-        # 🧪 Dry-run mode: simulate only
+        # 🧪 Dry run (do nothing)
         if self._config_service.is_dry_run():
             print(f"[DRY RUN] Would move: {abs_from} → {destination}")
             return
@@ -112,8 +112,8 @@ class FileSystemSynologyOS(IFileSystem):
         skipped = 0
 
         if os.path.isdir(abs_from):
-            # ✅ CASE 1: It's a directory (merge contents)
-            print("[INFO] ⚠️ Merge strategy: Existing files kept, missing files added.")
+            # ✅ CASE 1: Directory — merge contents
+            print("[INFO] ⚠️ Merge strategy: Existing files are kept, missing files are added.")
 
             for root, _, files in os.walk(abs_from):
                 rel_path = os.path.relpath(root, abs_from)
@@ -124,26 +124,26 @@ class FileSystemSynologyOS(IFileSystem):
                     src_file = os.path.join(root, file)
                     dest_file = os.path.join(target_dir, file)
 
-                    # 🧠 CASE A: File already exists — SKIP it
+                    # CASE A: File already exists
                     if os.path.exists(dest_file):
-                        print(f"[SKIP] File already exists: {dest_file}")
+                        print(f"[SKIP] Already exists: {dest_file}")
                         skipped += 1
                     else:
-                        # 🧠 CASE B: File missing — COPY it
+                        # CASE B: File is missing, copy it
                         shutil.copy2(src_file, dest_file)
                         print(f"[COPY] {src_file} → {dest_file}")
                         copied += 1
 
-            # ✅ After merging, delete the original folder
+            # ✅ After merge, remove original folder
             shutil.rmtree(abs_from)
             print(f"[DELETE] Removed original folder: {abs_from}")
 
         else:
-            # ✅ CASE 2: It's a file — copy directly
+            # ✅ CASE 2: Single file
             dest_file = os.path.join(destination, os.path.basename(abs_from))
 
             if os.path.exists(dest_file):
-                print(f"[SKIP] File already exists: {dest_file}")
+                print(f"[SKIP] Already exists: {dest_file}")
                 skipped += 1
             else:
                 shutil.copy2(abs_from, dest_file)
@@ -151,8 +151,8 @@ class FileSystemSynologyOS(IFileSystem):
                 print(f"[COPY] {abs_from} → {dest_file}")
                 copied += 1
 
-        # ✅ Final summary
-        print(f"[SUMMARY] ✅ Files copied: {copied} | Skipped (already existed): {skipped}")
+        # ✅ Final operation summary
+        print(f"[SUMMARY] ✅ Copied: {copied}, Skipped: {skipped}")
 
 
 
