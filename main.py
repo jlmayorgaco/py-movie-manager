@@ -42,7 +42,6 @@ scalability, and maintainability.
    - **Scalability**: Supports future extension, such as additional scrapers or platforms.
 """
 ## ------------------------------------------------------------------------------ ##
-
 ## ------------------------------------------------------------------------------ ##
 ## ---- PyMovieManager CLI Loader ---------------------------------------------- ##
 ## ------------------------------------------------------------------------------ ##
@@ -77,15 +76,24 @@ def initialize_movie_manager_services(config_path: str, os_type: str):
         cnfg = Config(config_path)
         cnfg.setGenres(GenresEnum)
 
+        logger.info(f"🧾 Loaded config from: {config_path}")
+        logger.info("🔧 Config values:")
+        logger.info(f"  directory_raw  : {cnfg.get('directory_raw')}")
+        logger.info(f"  directory_temp : {cnfg.get('directory_temp')}")
+        logger.info(f"  directory_vose : {cnfg.get('directory_vose')}")
+        logger.info(f"  dry_run        : {cnfg.get('dry_run')}")
+
         # Scrapper Service
         imdb = ScrapperServiceIMDB()
         imdb.setApiKey(os.getenv("IMDB_API_KEY", "default_api_key"))
+        logger.info(f"🔑 IMDb API key loaded: {imdb.api_key}")
 
         # Filter Service
         ff = FilterServiceDefault()
         ff.setGenres(cnfg.getGenres())
         ff.setGenreSearchTag(os.getenv("GENRE_TAG", "[g-*]"))
         ff.setDirectorSearchTag(os.getenv("DIRECTOR_TAG", "[d-*]"))
+        logger.info("🔍 Filter service initialized with tags and genres")
 
         # File System Service
         if os_type == "synology":
@@ -97,6 +105,7 @@ def initialize_movie_manager_services(config_path: str, os_type: str):
 
         fs.setConfig(cnfg)
         fs.setFilter(ff)
+        logger.info(f"💽 File system service initialized for {os_type}")
 
         # Movie Manager
         movieManager = MovieManager()
@@ -104,34 +113,36 @@ def initialize_movie_manager_services(config_path: str, os_type: str):
         movieManager.setServiceFilter(ff)
         movieManager.setServiceFileSystem(fs)
         movieManager.setServiceScrapper(imdb)
+        logger.info("🎬 MovieManager service initialized and configured")
 
-        logger.info("Initialization complete.")
         return movieManager
     except Exception as e:
-        logger.error(f"Initialization error: {e}")
+        logger.error(f"❌ Initialization error: {e}")
         raise
 
 
 def run_movie_manager(movieManager):
     """Execute the main workflow for movie management."""
     try:
+        logger.info(f"🚦 DRY RUN MODE = {movieManager.config.get('dry_run')}")
+
         movieManager.start()
-        logger.info("Workflow Start completed")
+        logger.info("✅ Workflow start completed")
 
         movieManager.creating_temp_genres()
-        logger.info("Workflow creating_temp_genres completed")
+        logger.info("✅ Workflow creating_temp_genres completed")
 
         movieManager.moving_to_temp()
-        logger.info("Workflow moving_to_temp completed")
+        logger.info("✅ Workflow moving_to_temp completed")
 
         movieManager.renaming_in_temp()
-        logger.info("Workflow renaming_in_temp completed")
+        logger.info("✅ Workflow renaming_in_temp completed")
 
         movieManager.moving_to_vose()
-        logger.info("Workflow completed successfully")
+        logger.info("✅ Workflow moving_to_vose completed")
 
     except Exception as e:
-        logger.error(f"Workflow error: {e}")
+        logger.error(f"❌ Workflow error: {e}")
 
 
 ## ------------------------------------------------------------------------------ ##
@@ -146,7 +157,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_file = "config/config.sandbox.json" if args.sandbox else "config/config.json"
-
     logger.info(f"▶️ Starting PyMovieManager [OS: {args.os}] [Config: {config_file}]")
 
     try:
