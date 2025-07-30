@@ -78,12 +78,12 @@ def initialize_movie_manager_services(config_path: str, os_type: str):
 
         logger.info(f"🧾 Loaded config from: {config_path}")
         logger.info("🔧 Config values:")
-        logger.info(f"  directory_raw  : {cnfg.get('directory_raw')}")
-        logger.info(f"  directory_temp : {cnfg.get('directory_temp')}")
-        logger.info(f"  directory_vose : {cnfg.get('directory_vose')}")
-        logger.info(f"  dry_run        : {cnfg.get('dry_run')}")
+        logger.info(f"  directory_raw  : {cnfg.directory_raw}")
+        logger.info(f"  directory_temp : {cnfg.directory_temp}")
+        logger.info(f"  directory_vose : {cnfg.directory_vose}")
+        logger.info(f"  dry_run        : {cnfg.dry_run}")
 
-        # Scrapper Service
+            # Scrapper Service
         imdb = ScrapperServiceIMDB()
         imdb.setApiKey(os.getenv("IMDB_API_KEY", "default_api_key"))
         logger.info(f"🔑 IMDb API key loaded: {imdb.api_key}")
