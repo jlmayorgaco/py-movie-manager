@@ -125,7 +125,7 @@ def initialize_movie_manager_services(config_path: str, os_type: str):
 def run_movie_manager(movieManager):
     """Execute the main workflow for movie management."""
     try:
-        logger.info(f"🚦 DRY RUN MODE = {movieManager.config.is_dry_run()}")
+        logger.info(f"🚦 DRY RUN MODE = {movieManager.configService.is_dry_run()}")
 
         movieManager.start()
         logger.info("✅ Workflow start completed")
