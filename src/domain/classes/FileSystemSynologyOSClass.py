@@ -85,11 +85,10 @@ class FileSystemSynologyOS(IFileSystem):
             self.move(folder, destination_path)
 
     def move(self, from_path: str, to_path: str) -> None:
-        import os, shutil
 
         abs_from = os.path.abspath(from_path)
         abs_to = os.path.abspath(to_path)
-        destination = abs_to
+        destination = os.path.join(abs_to, os.path.basename(abs_from))
 
         if not os.path.exists(abs_from):
             raise ValueError(f"Source path does not exist: {abs_from}")
