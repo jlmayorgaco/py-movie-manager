@@ -1,8 +1,8 @@
 import os
+import logging
+from tqdm import tqdm
 from src.domain.interfaces.IMovieManagerInterface import IMovieManager
 from src.domain.classes.ConfigClass import Config
-import logging
-from tqdm import tqdm  # ✅ Import tqdm for progress bar
 class MovieManager(IMovieManager):
     """
     MovieManager: A service to organize and manage movie files based on genres.
@@ -154,6 +154,8 @@ class MovieManager(IMovieManager):
         """
         Rename movie folders in TEMP to remove unnecessary tags while avoiding conflicts.
         """
+
+
         logger = logging.getLogger(__name__)
         print("\nSTEP::3 .... renaming_in_temp")
 
@@ -175,34 +177,29 @@ class MovieManager(IMovieManager):
                 logger.info(f"Processing genre '{genre}' with {len(movies)} movies.")
 
                 for movie in movies:
-                    new_name = self.filterService.clean(movie)
+                    base_name = self.filterService.clean(movie)
+                    new_name = base_name
                     old_path = self.fileSystemService.join(genre_path, movie)
                     new_path = self.fileSystemService.join(genre_path, new_name)
-
-                    # ✅ If new name already exists, add a suffix
-                    counter = 1
-                    #while os.path.exists(new_path):
-                        #new_name = f"{self.filterService.clean(movie)} ({counter})"
-                        #new_path = self.fileSystemService.join(genre_path, new_name)
-                        #counter += 1
 
                     # ✅ Skip if names are the same
                     if old_path == new_path:
                         logger.info(f"Skipping '{movie}', already correctly named.")
                         continue
 
+                    # ✅ If new name already exists, add suffix (1), (2), ...
+                    counter = 1
+                    while self.fileSystemService.exists(new_path):
+                        new_name = f"{base_name} ({counter})"
+                        new_path = self.fileSystemService.join(genre_path, new_name)
+                        counter += 1
+
                     try:
-                        # Check if old_path exists using fileSystemService
-                        if not self.fileSystemService.get_folders_at(os.path.dirname(old_path)):
+                        # ✅ Check if old_path still exists before renaming
+                        if not self.fileSystemService.exists(old_path):
                             logger.warning(f"Skipping rename: '{old_path}' does not exist.")
                             continue
 
-                        # Check if new_path already exists using fileSystemService
-                        if self.fileSystemService.get_folders_at(os.path.dirname(new_path)):
-                            logger.info(f"Skipping rename: '{new_path}' already exists.")
-                            continue
-
-                        # Rename using fileSystemService
                         self.fileSystemService.rename(old_path, new_path)
                         logger.info(f"Renamed '{movie}' -> '{new_name}'")
 
@@ -210,7 +207,6 @@ class MovieManager(IMovieManager):
                         logger.error(f"Rename failed due to validation error: {ve}")
                     except OSError as e:
                         logger.error(f"Failed to rename '{movie}' to '{new_name}': {e}")
-
 
                 pbar.update(1)  # ✅ Update progress bar
 
