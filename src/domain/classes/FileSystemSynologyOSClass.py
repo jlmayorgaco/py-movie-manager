@@ -101,6 +101,26 @@ class FileSystemSynologyOS(IFileSystem):
             return
 
         if os.path.isdir(abs_from):
+            if os.path.exists(destination):
+                # Revisar si hay archivos que no están en destino
+                missing_files = []
+
+                for root, _, files in os.walk(abs_from):
+                    rel_path = os.path.relpath(root, abs_from)
+                    target_dir = os.path.join(destination, rel_path)
+
+                    for file in files:
+                        dest_file = os.path.join(target_dir, file)
+                        if not os.path.exists(dest_file):
+                            missing_files.append(os.path.join(rel_path, file))
+
+                if missing_files:
+                    print("❌ CONFLICT: Destination folder already exists but is missing the following files:")
+                    for f in missing_files:
+                        print(f" - {f}")
+                    raise RuntimeError("Merge conflict: destination folder exists but has missing files. Aborting.")
+
+            # Si no hay conflicto, hacer el merge normal
             self.ensure_directory_exists(destination)
             for root, _, files in os.walk(abs_from):
                 rel_path = os.path.relpath(root, abs_from)
@@ -119,8 +139,9 @@ class FileSystemSynologyOS(IFileSystem):
 
             shutil.rmtree(abs_from)
             print(f"[DELETE] Removed original folder: {abs_from}")
+
         else:
-            # It's a file
+            # Archivo individual
             dest_file = os.path.join(abs_to, os.path.basename(abs_from))
             if os.path.exists(dest_file):
                 print(f"[SKIP] File already exists: {dest_file}")
@@ -128,6 +149,7 @@ class FileSystemSynologyOS(IFileSystem):
                 shutil.copy2(abs_from, dest_file)
                 print(f"[COPY] {abs_from} → {dest_file}")
             os.remove(abs_from)
+
 
 
     def join(self, *paths) -> str:
