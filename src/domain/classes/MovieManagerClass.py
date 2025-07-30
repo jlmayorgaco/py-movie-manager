@@ -203,12 +203,15 @@ class MovieManager(IMovieManager):
         Move genre folders from TEMP to VOSE directory, merging contents instead of replacing.
         If a folder already exists and has conflicting content (e.g., same movie folder, partial files), the process will stop with an error.
         """
+        import os
+        import shutil
+
         logger = logging.getLogger(__name__)
         print("\nSTEP::4 .... moving_to_vose")
 
         # ✅ Get TEMP and VOSE directories
         temp_path = self._get_temp_path(self.configService.getDirectorySource())
-        vose_path = self.configService.getDirectoryTarget()  # ✅ Use correct getter method
+        vose_path = self.configService.getDirectoryTarget()
 
         # ✅ Ensure VOSE directory exists
         self.fileSystemService.ensure_directory_exists(vose_path)
@@ -229,7 +232,7 @@ class MovieManager(IMovieManager):
                 # ✅ Get movie folders in the current genre
                 movies = [
                     m for m in self.fileSystemService.get_folders_at(from_genre_path)
-                    if not m.startswith("@")  # filter Synology hidden folders
+                    if not m.startswith("@")  # Filter Synology metadata folders
                 ]
                 logger.info(f"Merging '{genre}' genre with {len(movies)} movies.")
 
@@ -238,15 +241,28 @@ class MovieManager(IMovieManager):
                     to_movie_path = self.fileSystemService.join(to_genre_path, movie)
 
                     try:
-                        self.fileSystemService.move(from_movie_path, to_movie_path)
+                        if os.path.exists(to_movie_path):
+                            # 🧠 If folder exists, move its contents one by one
+                            for item in os.listdir(from_movie_path):
+                                src = os.path.join(from_movie_path, item)
+                                dst = os.path.join(to_movie_path, item)
+                                if os.path.exists(dst):
+                                    raise RuntimeError(f"Conflict: File already exists at '{dst}'")
+                                shutil.move(src, dst)
+                            os.rmdir(from_movie_path)  # Remove empty folder
+                        else:
+                            # 🧠 Folder doesn't exist, move entire folder
+                            shutil.move(from_movie_path, to_movie_path)
+
                         logger.info(f"✅ Successfully moved '{movie}' to '{to_movie_path}'.")
                     except RuntimeError as e:
                         logger.critical(f"❌ Merge conflict detected for '{movie}': {e}")
-                        raise  # ⛔ Stop the entire process
+                        raise  # Stop the entire process
                     except OSError as e:
                         logger.error(f"⚠️ Failed to move '{movie}' to VOSE: {e}")
 
-                pbar.update(1)  # ✅ Update progress bar
+                pbar.update(1)
+
 
     def deleting_temp(self) -> None:
         """
