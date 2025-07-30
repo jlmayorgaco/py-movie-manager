@@ -240,7 +240,10 @@ class MovieManager(IMovieManager):
                 self.fileSystemService.ensure_directory_exists(to_genre_path)
 
                 # ✅ Get movie folders in the current genre
-                movies = self.fileSystemService.get_folders_at(from_genre_path)
+                movies = [
+                    m for m in self.fileSystemService.get_folders_at(from_genre_path)
+                    if not m.startswith("@")  # filter Synology hidden folders
+                ]
                 logger.info(f"Merging '{genre}' genre with {len(movies)} movies.")
 
                 for movie in movies:
