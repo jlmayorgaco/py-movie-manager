@@ -238,7 +238,7 @@ class MovieManager(IMovieManager):
                     to_movie_path = self.fileSystemService.join(to_genre_path, movie)
 
                     try:
-                        self.fileSystemService.move(from_movie_path, to_movie_path, preserve_folder_name=False)
+                        self.fileSystemService.move(from_movie_path, to_movie_path)
                         logger.info(f"✅ Successfully moved '{movie}' to '{to_movie_path}'.")
                     except RuntimeError as e:
                         logger.critical(f"❌ Merge conflict detected for '{movie}': {e}")
