@@ -95,29 +95,27 @@ class FileSystemSynologyOS(IFileSystem):
         if not os.path.exists(abs_source):
             raise ValueError(f"Source directory does not exist: {abs_source}")
 
-        self.ensure_directory_exists(abs_destination)
-
         if self._config_service.is_dry_run():
-            print(f"[DRY RUN] Would move contents from {abs_source} to {abs_destination}")
+            print(f"[DRY RUN] Would move {abs_source} → {abs_destination}")
             return
 
-        for item in os.listdir(abs_source):
-            src_item = os.path.join(abs_source, item)
-            dest_item = os.path.join(abs_destination, item)
-
-            if os.path.isdir(src_item):
-                if os.path.exists(dest_item) and os.path.isdir(dest_item):
-                    for root, _, files in os.walk(src_item):
-                        target_dir = os.path.join(dest_item, os.path.relpath(root, src_item))
-                        self.ensure_directory_exists(target_dir)
-                        for file in files:
-                            shutil.copy2(os.path.join(root, file), os.path.join(target_dir, file))
-                else:
-                    shutil.copytree(src_item, dest_item)
+        try:
+            os.rename(abs_source, abs_destination)
+        except OSError as e:
+            if e.errno == 18:  # Cross-device link
+                print("Cross-device detected. Falling back to copy + delete strategy.")
+                self.ensure_directory_exists(abs_destination)
+                for item in os.listdir(abs_source):
+                    src_item = os.path.join(abs_source, item)
+                    dest_item = os.path.join(abs_destination, item)
+                    if os.path.isdir(src_item):
+                        shutil.copytree(src_item, dest_item)
+                    else:
+                        shutil.copy2(src_item, dest_item)
+                shutil.rmtree(abs_source)
             else:
-                shutil.copy2(src_item, dest_item)
+                raise RuntimeError(f"Failed to move directory: {e}")
 
-        shutil.rmtree(abs_source)
 
     def rename(self, old_path: str, new_path: str) -> None:
         if not os.path.exists(old_path):
