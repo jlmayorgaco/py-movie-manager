@@ -19,6 +19,35 @@ class FileSystemSynologyOS(IFileSystem):
     def __str__(self) -> str:
         return f"FileSystemSynologyOS::CWD <{self._cwd}>"
 
+    def is_file(self, path: str) -> bool:
+        return os.path.isfile(path)
+
+    def is_dir(self, path: str) -> bool:
+        return os.path.isdir(path)
+
+    def get_size(self, path: str) -> int:
+        return os.path.getsize(path)
+
+    def copy_file(self, src: str, dst: str) -> None:
+        if self._config_service and self._config_service.is_dry_run():
+            print(f"[DRY RUN] Would copy {src} to {dst}")
+        else:
+            if not os.path.exists(os.path.dirname(dst)) and os.path.dirname(dst) != '':
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+
+    def remove_file(self, path: str) -> None:
+        if self._config_service and self._config_service.is_dry_run():
+            print(f"[DRY RUN] Would remove file {path}")
+        else:
+            os.remove(path)
+
+    def remove_directory(self, path: str) -> None:
+        if self._config_service and self._config_service.is_dry_run():
+            print(f"[DRY RUN] Would remove directory {path}")
+        else:
+            shutil.rmtree(path)
+
     def ensure_directory_exists(self, path: str) -> None:
         if not os.path.exists(path):
             if self._config_service.is_dry_run():
@@ -132,6 +161,11 @@ class FileSystemSynologyOS(IFileSystem):
         if not os.path.exists(path):
             raise ValueError(f"Path does not exist: {path}")
         return [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
+
+    def get_files_at(self, path: str) -> List[str]:
+        if not os.path.exists(path):
+            raise ValueError(f"Path does not exist: {path}")
+        return [name for name in os.listdir(path) if os.path.isfile(os.path.join(path, name))]
 
     def setFilter(self, filter_service) -> None:
         self._filter_service = filter_service

@@ -1,155 +1,158 @@
-import re
 import logging
-from Levenshtein import distance
+import re
 from typing import List
+
+from Levenshtein import distance
 
 from src.domain.interfaces.IFilterServiceInterface import IFilterService
 
 
 class FilterServiceDefault(IFilterService):
     """
-    FilterServiceDefault: A service to handle filtering operations for genres and directors,
-    including cleaning folder names and finding the most similar genres.
+    FilterServiceDefault: handles folder-name parsing, genre extraction,
+    tag extraction, folder filtering, and cleaning of movie folder names.
     """
 
-    def __init__(self):
-        """
-        Initialize the FilterServiceDefault with default values.
-        """
-        self.search_genre_tag = ''
-        self.search_director_tag = ''
+    # Precompiled regex patterns for performance and clarity
+    GENRE_TAG_PATTERN = re.compile(r"\[g-(.*?)\]", re.IGNORECASE)
+    DIRECTOR_TAG_PATTERN = re.compile(r"\[d-(.*?)\]", re.IGNORECASE)
+    TAG_PAIR_PREFIX_PATTERN = re.compile(r"^\[g-(.*?)\]\[d-(.*?)\]", re.IGNORECASE)
+    ANY_TAG_PATTERN = re.compile(r"\[.*?\]")
+    MULTISPACE_PATTERN = re.compile(r"\s{2,}")
+
+    def __init__(self) -> None:
+        self.search_genre_tag = ""
+        self.search_director_tag = ""
         self.genres: List[str] = []
-        self.logger = logging.getLogger(__name__)  # ✅ Logger added
+        self.logger = logging.getLogger(__name__)
 
     def __str__(self) -> str:
-        """
-        String representation of the filter service, showing current tags.
-        """
         return (
             f"FilterServiceDefault::search_genre_tag <{self.search_genre_tag}>\n"
             f"FilterServiceDefault::search_director_tag <{self.search_director_tag}>"
         )
 
-    # Setter Methods
+    # ------------------------------------------------------------------
+    # Setters
+    # ------------------------------------------------------------------
     def setGenres(self, genres: List[str]) -> None:
-        """
-        Set the list of genres.
-
-        Args:
-            genres (List[str]): List of genres to set.
-        """
-        self.genres = genres
+        self.genres = genres or []
+        self.logger.debug("Configured %d genres.", len(self.genres))
 
     def setGenreSearchTag(self, tag: str) -> None:
-        """
-        Set the genre search tag.
-
-        Args:
-            tag (str): Genre search tag to set.
-        """
-        self.search_genre_tag = tag
+        self.search_genre_tag = tag or ""
+        self.logger.debug("Configured genre search tag: %s", self.search_genre_tag)
 
     def setDirectorSearchTag(self, tag: str) -> None:
+        self.search_director_tag = tag or ""
+        self.logger.debug("Configured director search tag: %s", self.search_director_tag)
+
+    # ------------------------------------------------------------------
+    # Core functionality
+    # ------------------------------------------------------------------
+    def getGenreByMostLikehood(self, genre: str) -> str:
         """
-        Set the director search tag.
+        Return the closest configured genre using Levenshtein distance.
 
-        Args:
-            tag (str): Director search tag to set.
-        """
-        self.search_director_tag = tag
-
-    # Core Functionality
-    def getGenreByMostLikehood(self, genre: str) -> str:  # ✅ Fixed method name
-        """
-        Find the most similar genre to the provided one based on Levenshtein distance.
-
-        Args:
-            genre (str): Genre string to compare.
-
-        Returns:
-            str: The most similar genre.
+        Keeps legacy method name for compatibility with the rest of the project.
         """
         if not self.genres:
-            raise ValueError("Genres list is empty. Ensure genres are set before calling this method.")
+            raise ValueError(
+                "Genres list is empty. Ensure genres are set before calling this method."
+            )
 
-        if genre == "Unknown":
-            self.logger.info("Skipping genre matching because genre is 'Unknown'.")
+        normalized_genre = (genre or "").strip()
+        if not normalized_genre or normalized_genre == "Unknown":
+            self.logger.debug("Skipping genre similarity match because genre is unknown/empty.")
             return "Unknown"
 
-        most_similar = min(self.genres, key=lambda x: distance(x.upper(), genre.upper()))
-        self.logger.info(f"Matching genre '{genre}' -> Most likely: '{most_similar}'")
+        most_similar = min(
+            self.genres,
+            key=lambda x: distance(str(x).upper(), normalized_genre.upper()),
+        )
+        self.logger.debug(
+            "Genre similarity match: input='%s' -> selected='%s'",
+            normalized_genre,
+            most_similar,
+        )
         return most_similar
 
     def clean(self, folder_string: str) -> str:
         """
-        Clean a folder string by removing tags and trimming whitespace.
-
-        Args:
-            folder_string (str): The folder string to clean.
-
-        Returns:
-            str: The cleaned folder string.
+        Remove the leading [g-*][d-*] tag pair and normalize whitespace.
         """
-        pattern = re.compile(r'^\[g-(.*?)\]\[d-(.*?)\]')
-        cleaned_folder = re.sub(pattern, '', folder_string).strip()
-        return cleaned_folder
+        text = (folder_string or "").strip()
+        cleaned = self.TAG_PAIR_PREFIX_PATTERN.sub("", text).strip()
+        cleaned = self.MULTISPACE_PATTERN.sub(" ", cleaned)
+        return cleaned.strip()
 
     def getGenreByFolderName(self, folder_name: str) -> str:
         """
-        Extract the genre from a folder name based on the genre tag.
-
-        Args:
-            folder_name (str): Folder name to parse.
-
-        Returns:
-            str: Extracted genre or 'Unknown' if not found.
+        Extract the genre tag from a folder name.
+        Returns 'Unknown' if no [g-*] tag is found.
         """
-        match = re.search(r'\[g-(.*?)\]', folder_name)
-        genre = match.group(1) if match else "Unknown"
-        self.logger.info(f"Extracted genre '{genre}' from folder '{folder_name}'")
+        text = folder_name or ""
+        match = self.GENRE_TAG_PATTERN.search(text)
+        genre = match.group(1).strip() if match else "Unknown"
+        self.logger.debug("Extracted genre '%s' from folder '%s'", genre, folder_name)
         return genre
 
     def extractTags(self, folder_name: str) -> dict:
         """
-        Extract genre and director tags from a folder name.
-
-        Args:
-            folder_name (str): Folder name to parse.
-
-        Returns:
-            dict: Dictionary with extracted tags {'genre': ..., 'director': ...}.
+        Extract both genre and director tags from a folder name.
         """
-        pattern = re.compile(r'\[g-(.*?)\]\[d-(.*?)\]')
-        match = re.search(pattern, folder_name)
-        if match:
-            return {'genre': match.group(1), 'director': match.group(2)}
-        return {'genre': "Unknown", 'director': "Unknown"}
+        text = folder_name or ""
+
+        genre_match = self.GENRE_TAG_PATTERN.search(text)
+        director_match = self.DIRECTOR_TAG_PATTERN.search(text)
+
+        genre = genre_match.group(1).strip() if genre_match else "Unknown"
+        director = director_match.group(1).strip() if director_match else "Unknown"
+
+        self.logger.debug(
+            "Extracted tags from '%s' -> genre='%s', director='%s'",
+            folder_name,
+            genre,
+            director,
+        )
+
+        return {
+            "genre": genre,
+            "director": director,
+        }
 
     def filter_folders(self, folders: List[str]) -> List[str]:
         """
-        Filters folders to include only those that contain a valid genre tag.
-
-        Args:
-            folders (List[str]): List of folder names to filter.
-
-        Returns:
-            List[str]: A filtered list containing only folders with valid genre tags.
+        Keep only folders that contain a valid [g-*] tag.
         """
-        filtered_folders = []
+        filtered_folders: List[str] = []
+        skipped_count = 0
+
         for folder in folders:
             genre = self.getGenreByFolderName(folder)
             if genre != "Unknown":
                 filtered_folders.append(folder)
             else:
-                self.logger.info(f"Skipping folder '{folder}': No valid genre tag found.")
+                skipped_count += 1
+                self.logger.debug(
+                    "Skipping folder '%s': no valid genre tag found.",
+                    folder,
+                )
 
-        self.logger.info(f"Filtered {len(filtered_folders)}/{len(folders)} folders with valid genre tags.")
+        self.logger.info(
+            "Folder filter summary: valid=%d skipped=%d total=%d",
+            len(filtered_folders),
+            skipped_count,
+            len(folders),
+        )
         return filtered_folders
-    
+
     def clean_folder_name(self, name: str) -> str:
         """
-        Remove [g-*] and [d-*] tags from folder names.
+        Remove [g-*], [d-*], and any other bracket tags from folder names,
+        then normalize whitespace.
         """
-        cleaned = re.sub(r"\[.*?\]", "", name)        # remove any [g-*], [d-*], etc
-        cleaned = re.sub(r"\s{2,}", " ", cleaned)      # remove extra spaces
+        text = (name or "").strip()
+        cleaned = self.ANY_TAG_PATTERN.sub("", text)
+        cleaned = self.MULTISPACE_PATTERN.sub(" ", cleaned)
         return cleaned.strip()

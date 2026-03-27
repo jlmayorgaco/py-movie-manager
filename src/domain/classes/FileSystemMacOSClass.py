@@ -18,6 +18,30 @@ class FileSystemMacOS(IFileSystem):
         self._filter_service = None
         self._config_service = None
 
+    def exists(self, path: str) -> bool:
+        """Check if a file or directory exists at the given path."""
+        return os.path.exists(path)
+
+    def is_file(self, path: str) -> bool:
+        return os.path.isfile(path)
+
+    def is_dir(self, path: str) -> bool:
+        return os.path.isdir(path)
+
+    def get_size(self, path: str) -> int:
+        return os.path.getsize(path)
+
+    def copy_file(self, src: str, dst: str) -> None:
+        if not os.path.exists(os.path.dirname(dst)) and os.path.dirname(dst) != '':
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copy2(src, dst)
+
+    def remove_file(self, path: str) -> None:
+        os.remove(path)
+
+    def remove_directory(self, path: str) -> None:
+        shutil.rmtree(path)
+
     def __str__(self) -> str:
         """
         Return a string representation of the current working directory (CWD).
@@ -212,6 +236,12 @@ class FileSystemMacOS(IFileSystem):
             raise ValueError(f"Path does not exist: {path}")
 
         return [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
+
+    def get_files_at(self, path: str) -> List[str]:
+        if not os.path.exists(path):
+            raise ValueError(f"Path does not exist: {path}")
+
+        return [name for name in os.listdir(path) if os.path.isfile(os.path.join(path, name))]
 
     def rename(self, old_path: str, new_path: str) -> None:
         """
