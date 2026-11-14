@@ -9,7 +9,8 @@ DIRECTOR_TAG = re.compile(r"\[d-([^\]]*)\]", re.IGNORECASE)
 METADATA_TAG = re.compile(r"\[[gd]-[^\]]*\]", re.IGNORECASE)
 TRANSFER_PREFIX = ".pymovie-transfer-"
 LOCK_NAME = ".pymovie-manager.lock"
-SYSTEM_NAMES = {"@eadir", "#recycle", "@recycle", ".deletedbytmm", LOCK_NAME}
+SYNOLOGY_METADATA = "@eadir"
+SYSTEM_NAMES = {SYNOLOGY_METADATA, "#recycle", "@recycle", ".deletedbytmm", LOCK_NAME}
 WINDOWS_RESERVED = re.compile(
     r"^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³]|conin\$|conout\$)(?:\.|$)", re.I
 )
@@ -43,8 +44,23 @@ def reserved(name: str) -> bool:
     return normalized in SYSTEM_NAMES or normalized.startswith(TRANSFER_PREFIX)
 
 
+def movie_entry_issue(name: str, *, allow_synology_metadata: bool) -> str:
+    """Only real @eaDir directories inside movies are exempt from reserved names."""
+    key = name_key(name)
+    if reserved(name) and not (allow_synology_metadata and key == SYNOLOGY_METADATA):
+        return "reserved_entry_inside_movie"
+    if key.startswith("alreadycopied_"):
+        return "legacy_partial_transfer_marker"
+    return ""
+
+
 def valid_movie_name(name: str, *, windows: bool) -> bool:
-    if name in {"", ".", ".."} or reserved(name) or "/" in name or "\x00" in name:
+    if (
+        name in {"", ".", ".."}
+        or "/" in name
+        or "\x00" in name
+        or movie_entry_issue(name, allow_synology_metadata=False)
+    ):
         return False
     return not windows or (
         not name.endswith((".", " "))

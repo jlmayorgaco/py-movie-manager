@@ -1,32 +1,16 @@
 import json
-import os
-import subprocess
 from pathlib import Path
 
 import pytest
 
 import main as cli
-from conftest import make_movie, snapshot
+from conftest import make_movie, snapshot, symlink
 
 
 def update(path, **values):
     data = json.loads(path.read_text(encoding="utf-8"))
     data.update(values)
     path.write_text(json.dumps(data), encoding="utf-8")
-
-
-def symlink(path, target):
-    try:
-        path.symlink_to(target, target_is_directory=target.is_dir())
-    except (NotImplementedError, OSError) as exc:
-        if os.name == "nt" and target.is_dir():
-            subprocess.run(
-                ["cmd", "/c", "mklink", "/J", str(path), str(target)],
-                check=True,
-                capture_output=True,
-            )
-        else:
-            pytest.skip(f"This host cannot create a symlink: {exc}")
 
 
 @pytest.mark.parametrize(

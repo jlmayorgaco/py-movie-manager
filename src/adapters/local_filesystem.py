@@ -6,8 +6,10 @@ import errno
 import hashlib
 import logging
 import os
+import re
 import shutil
 import stat
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -19,12 +21,34 @@ from src.adapters.paths import (
     no_links,
     reject_windows_streams,
 )
-from src.domain.classes.LibraryNames import LOCK_NAME, staging_name
+from src.domain.classes.LibraryNames import LOCK_NAME, movie_entry_issue, staging_name
 from src.domain.interfaces.IFileSystemInterface import IFileSystem
 from src.domain.interfaces.LibraryFileSystem import Entry
 
 
 logger = logging.getLogger(__name__)
+
+
+def _read_mount_points(mountinfo: Path) -> set[Path]:
+    """Read mount points, including same-device bind mounts skipped by is_mount."""
+    escaped = re.compile(rb"\\([0-7]{3})")
+    with mountinfo.open("rb") as stream:
+        return {
+            Path(
+                os.fsdecode(
+                    escaped.sub(
+                        lambda match: bytes([int(match[1], 8)]), line.split(b" ", 5)[4]
+                    )
+                )
+            )
+            for line in stream
+        }
+
+
+def _mount_points() -> set[Path]:
+    if sys.platform.startswith("linux"):
+        return _read_mount_points(Path("/proc/self/mountinfo"))
+    return set()
 
 
 def _entry(path: Path, info: os.stat_result) -> Entry:
@@ -112,9 +136,12 @@ class LocalFileSystem(IFileSystem):
                 key=lambda entry: (entry.path.name.casefold(), entry.path.name),
             )
 
-    def _snapshot(self, path: Path) -> dict[Path, os.stat_result]:
+    def _snapshot(
+        self, path: Path, *, check_reserved: bool = False
+    ) -> dict[Path, os.stat_result]:
         no_links(path)
         root = path.lstat()
+        mounts = _mount_points()
         result = {}
         pending = [path]
         while pending:
@@ -124,11 +151,19 @@ class LocalFileSystem(IFileSystem):
             if (
                 kind not in {"directory", "file"}
                 or info.st_dev != root.st_dev
+                or current in mounts
                 or (os.name != "nt" and kind == "directory" and current.is_mount())
             ):
                 raise ValueError(
                     f"Cannot transfer a link, special file or nested mount: {current}"
                 )
+            if check_reserved:
+                reason = movie_entry_issue(
+                    current.name,
+                    allow_synology_metadata=current != path and kind == "directory",
+                )
+                if reason:
+                    raise ValueError(f"{reason}: {current}")
             result[current.relative_to(path)] = info
             if kind == "directory":
                 pending.extend(child.path for child in reversed(self.entries(current)))
@@ -174,7 +209,7 @@ class LocalFileSystem(IFileSystem):
             return
         self._check_transfer(source, destination)
         self._check_staging(destination)
-        snapshot = self._snapshot(source)
+        snapshot = self._snapshot(source, check_reserved=True)
         try:
             rename_noreplace(source, destination)
         except OSError as exc:
@@ -396,7 +431,7 @@ class LocalFileSystem(IFileSystem):
         if self.writable:
             source, destination = self._absolute(src), self._absolute(dst)
             self._check_transfer(source, destination)
-            snapshot = self._snapshot(source)
+            snapshot = self._snapshot(source, check_reserved=True)
             if not stat.S_ISREG(snapshot[Path(".")].st_mode):
                 raise ValueError(f"Not a regular file: {source}")
             self._verified_copy(source, destination, snapshot, remove_source=False)

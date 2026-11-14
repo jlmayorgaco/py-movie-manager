@@ -4,7 +4,11 @@ Organiza carpetas de películas para Plex: detecta el género en la etiqueta
 `[g-…]` de una carpeta de RAW, la prepara en TEMP, quita las etiquetas
 `[g-…]` y `[d-…]` del nombre y la lleva a VOSE bajo el género correspondiente.
 Conserva los nombres de edición, las películas, subtítulos, imágenes y otros
-archivos de la carpeta. También exporta un inventario local independiente.
+archivos de la carpeta. Un traslado conserva también los directorios reales
+`@eaDir` de Synology dentro de la película, incluidos los anidados en `.actors`
+o `extrathumbs`. Todo su contenido pasa por las mismas comprobaciones: se
+rechazan enlaces, archivos especiales, montajes anidados y marcas de traslados
+interrumpidos. También exporta un inventario local independiente.
 
 El CLI (`main.py`) configura los casos de uso `MovieManager` e `Inventory`.
 El dominio trabaja contra puertos en `src/domain/interfaces`. Los adaptadores
@@ -77,6 +81,22 @@ marca de revisión. Los datos desconocidos quedan vacíos. Los campos que Excel
 podría tratar como fórmulas se prefijan con un apóstrofo; el resto se conserva
 literalmente. Para un listado de lectura rápida, usa una salida `.txt`.
 La presencia en la biblioteca no registra si alguien vio o disfrutó la película.
+
+## Etiquetas de género
+
+La organización acepta los nombres de `GenresEnum` y los alias explícitos de
+[`config/GenresConfig.py`](config/GenresConfig.py). Ignora mayúsculas, acentos y
+diferencias de espacios, guiones y guiones bajos. Por ejemplo, `Bélica`,
+`BÉLICA`, `belica` y `War` van a `WAR`; `Ciencia Ficción` y
+`science_fiction` van a `SCIENCE_FICTION`. La etiqueta de director no interviene
+en esa decisión. Ambas etiquetas se quitan del nombre de la carpeta de destino.
+
+Una etiqueta desconocida, como `Película de Televisión`, queda en su carpeta
+original y aparece en el informe como `unknown_genre_tag`, sin destino. El
+informe puede sugerir géneros para errores de escritura cercanos —por ejemplo,
+`THRILLER` para `Thriler`—; las sugerencias nunca generan operaciones de traslado.
+Con `--resume`, si una etiqueta conservada en TEMP contradice el género de la
+carpeta que la contiene, el informe indica `temp_genre_mismatch` y no la mueve.
 
 ## Simular, revisar y aplicar
 

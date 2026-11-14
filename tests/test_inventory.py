@@ -21,6 +21,7 @@ def test_inventory_is_local_unicode_preserves_duplicates_and_ignores_extras(
             "sample.mp4": b"sample",
             "es.srt": b"subtitle",
             "@eaDir/garbage.mkv": b"thumb",
+            ".actors/@eaDir/garbage.mkv": b"nested thumb",
         },
     )
     make_movie(

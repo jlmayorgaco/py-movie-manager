@@ -232,13 +232,23 @@ def _organize(args, config, fs, roots) -> int:
             run.counts(),
         )
         for step in run.issues:
-            logger.warning(
-                "%s: %s -> %s (%s)",
-                step.status,
-                step.source,
-                step.destination,
-                step.reason,
-            )
+            if step.destination is None:
+                advice = (
+                    f"; suggestions: {', '.join(step.suggested_genres)}"
+                    if step.suggested_genres
+                    else ""
+                )
+                logger.warning(
+                    "%s: %s (%s%s)", step.status, step.source, step.reason, advice
+                )
+            else:
+                logger.warning(
+                    "%s: %s -> %s (%s)",
+                    step.status,
+                    step.source,
+                    step.destination,
+                    step.reason,
+                )
         if not args.apply:
             for job in run.jobs:
                 for step in job:

@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from conftest import make_movie, snapshot
+from conftest import SYNOLOGY_MOVIE_FILES, make_movie, snapshot
 from src.adapters import local_filesystem
 from src.adapters.native_rename import rename_noreplace
 from src.domain.classes.ConfigClass import Config
@@ -24,7 +24,7 @@ def test_all_adapters_honor_dry_run_for_all_mutations(library, adapter):
     config.set_dry_run(True)
     fs = adapter(apply=True, roots=(raw, temp, vose))
     fs.setConfig(config)
-    source = make_movie(raw / "movie")
+    source = make_movie(raw / "movie", SYNOLOGY_MOVIE_FILES)
     dest = vose / "movie"
     before = snapshot(raw, temp, vose)
     fs.move(str(source), str(dest))
@@ -65,7 +65,7 @@ def test_native_rename_never_replaces_even_empty_directory(library):
 def cross_device(library, monkeypatch):
     _, raw, _, vose = library
     fs = FileSystemSynologyOS(apply=True, roots=(raw, vose))
-    source = make_movie(raw / "movie")
+    source = make_movie(raw / "movie", SYNOLOGY_MOVIE_FILES)
     dest = vose / "movie"
 
     def rename(src, dst):
@@ -82,8 +82,8 @@ def test_cross_device_verifies_publishes_then_removes_source(cross_device):
     (source / "empty").mkdir()
     fs.transfer(source, dest)
     assert not source.exists()
-    assert (dest / "movie.mkv").read_bytes() == b"feature"
-    assert (dest / "es.srt").read_bytes() == b"subtitle"
+    for name, contents in SYNOLOGY_MOVIE_FILES.items():
+        assert (dest / name).read_bytes() == contents
     assert (dest / "empty").is_dir()
     assert list(dest.parent.iterdir()) == [dest]
 
@@ -99,10 +99,10 @@ def test_cross_device_failures_leave_source_and_no_partial_final(
 
     def fail_copy(src, dst, **kwargs):
         copy(src, dst, **kwargs)
-        if src.name == "movie.mkv":
-            if failure == "space":
-                raise OSError(errno.ENOSPC, "synthetic disk full")
-            dst.write_bytes(b"broken")  # same size, different bytes
+        if failure == "space" and src.name == "movie.mkv":
+            raise OSError(errno.ENOSPC, "synthetic disk full")
+        if failure == "corruption" and src == source / ".actors/@eaDir/meta":
+            dst.write_bytes(b"x" * dst.stat().st_size)  # same size, different bytes
 
     def competing_publish(src, dst):
         if src != source:
@@ -166,10 +166,10 @@ def test_real_cross_device_transfer(library):
     with TemporaryDirectory(prefix="pymovie-test-", dir=shared_memory) as temporary:
         target = Path(temporary)
         fs = FileSystemSynologyOS(apply=True, roots=(raw, target))
-        source = make_movie(raw / "movie")
+        source = make_movie(raw / "movie", SYNOLOGY_MOVIE_FILES)
         destination = target / "movie"
         fs.transfer(source, destination)
         assert not source.exists()
-        assert (destination / "movie.mkv").read_bytes() == b"feature"
-        assert (destination / "es.srt").read_bytes() == b"subtitle"
+        for name, contents in SYNOLOGY_MOVIE_FILES.items():
+            assert (destination / name).read_bytes() == contents
         assert list(target.iterdir()) == [destination]

@@ -1,6 +1,18 @@
 import json
+import os
+import subprocess
 
 import pytest
+
+
+SYNOLOGY_MOVIE_FILES = {
+    "movie.mkv": b"feature",
+    "es.srt": b"subtitle",
+    "extras/poster.jpg": b"image",
+    "@eaDir/meta": b"root metadata",
+    ".actors/@eaDir/meta": b"actor metadata",
+    "extrathumbs/@eaDir/meta": b"thumb metadata",
+}
 
 
 @pytest.fixture
@@ -51,3 +63,17 @@ def snapshot(*roots):
             else:
                 state[path] = "dir"
     return state
+
+
+def symlink(path, target):
+    try:
+        path.symlink_to(target, target_is_directory=target.is_dir())
+    except (NotImplementedError, OSError) as exc:
+        if os.name == "nt" and target.is_dir():
+            subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(path), str(target)],
+                check=True,
+                capture_output=True,
+            )
+        else:
+            pytest.skip(f"This host cannot create a symlink: {exc}")

@@ -1,15 +1,29 @@
-from abc import abstractmethod
-from abc import ABCMeta
+from __future__ import annotations
+
+from abc import ABCMeta, abstractmethod
+
 
 class IFilterService(metaclass=ABCMeta):
-
-    def __init__(self):
+    @abstractmethod
+    def setGenreSearchTag(self, tag: str) -> None:
         pass
 
     @abstractmethod
-    def setGenreSearchTag(tag: str):
+    def setDirectorSearchTag(self, tag: str) -> None:
         pass
 
     @abstractmethod
-    def setDirectorSearchTag(tag: str):
+    def genre_tag(self, folder_name: str) -> str | None:
+        pass
+
+    @abstractmethod
+    def resolve_genre(self, genre: str) -> str | None:
+        pass
+
+    @abstractmethod
+    def suggest_genres(self, genre: str) -> tuple[str, ...]:
+        pass
+
+    @abstractmethod
+    def clean_folder_name(self, name: str) -> str:
         pass

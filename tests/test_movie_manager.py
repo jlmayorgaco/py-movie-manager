@@ -208,3 +208,66 @@ def test_resume_keeps_legacy_partial_transfer_markers(library):
     before = snapshot(raw, temp, vose)
     assert main(["--config", str(config), "--apply", "--resume"]) == 2
     assert snapshot(raw, temp, vose) == before
+
+
+def test_full_plan_only_routes_recognized_genres_and_keeps_suggestions_in_review(
+    library,
+):
+    config, raw, temp, vose = library
+    known = make_movie(raw / "[g-Bélica][d-MUSIC] Army of Shadows (1969)")
+    tv_movie = make_movie(raw / "[g-Película de Televisión][d-Drama] TV Film")
+    typo = make_movie(raw / "[g-Thriler][d-War] Misspelled")
+    original = snapshot(raw, temp, vose)
+    unknown_sources = snapshot(tv_movie, typo)
+    report = config.with_name("all.json")
+    args = ["--os", "synology", "--config", str(config)]
+
+    assert main([*args, "--dry-run", "--report", str(report)]) == 2
+    assert snapshot(raw, temp, vose) == original
+    result = json.loads(report.read_text(encoding="utf-8"))
+    assert result["counts"] == {"conflict": 2, "planned": 3}
+    review = {
+        item["genre_tag"]: item
+        for item in result["operations"]
+        if item["stage"] == "review"
+    }
+    for tag, source, suggestions in (
+        ("Película de Televisión", tv_movie, []),
+        ("Thriler", typo, ["THRILLER"]),
+    ):
+        assert review[tag]["reason"] == "unknown_genre_tag"
+        assert review[tag]["source"] == str(source)
+        assert review[tag]["destination"] is None
+        assert review[tag]["suggested_genres"] == suggestions
+    planned = [item for item in result["operations"] if item["status"] == "planned"]
+    assert planned[0]["source"] == str(known)
+    assert planned[-1]["destination"] == str(vose / "WAR/Army of Shadows (1969)")
+
+    assert main([*args, "--apply"]) == 2
+    assert not known.exists()
+    assert snapshot(tv_movie, typo) == unknown_sources
+    assert list(vose.iterdir()) == [vose / "WAR"]
+
+
+def test_resume_does_not_trust_temp_category_over_explicit_raw_tag(library):
+    config, raw, temp, vose = library
+    tv_movie = make_movie(temp / "SCIENCE_FICTION/[g-Película de Televisión] TV Film")
+    misclassified = make_movie(temp / "MUSIC/[g-Bélica] Film")
+    valid = make_movie(temp / "WAR/[g-Guerra][d-Kinuyo Tanaka] Recovered")
+    conflicts = snapshot(tv_movie, misclassified)
+    report = config.with_name("resume.json")
+
+    assert (
+        main(["--config", str(config), "--apply", "--resume", "--report", str(report)])
+        == 2
+    )
+    assert snapshot(tv_movie, misclassified) == conflicts
+    assert not valid.exists()
+    assert (vose / "WAR/Recovered/movie.mkv").is_file()
+    result = json.loads(report.read_text(encoding="utf-8"))
+    assert {
+        item["reason"] for item in result["operations"] if item["status"] == "conflict"
+    } == {
+        "unknown_genre_tag",
+        "temp_genre_mismatch",
+    }

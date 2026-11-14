@@ -10,11 +10,13 @@ from pathlib import Path
 from src.domain.classes.LibraryNames import (
     TRANSFER_PREFIX,
     VIDEO_SUFFIXES,
+    movie_entry_issue,
     name_key,
     reserved,
     staging_name,
     valid_movie_name,
 )
+from src.domain.interfaces.IFilterServiceInterface import IFilterService
 from src.domain.interfaces.IMovieManagerInterface import IMovieManager
 from src.domain.interfaces.LibraryFileSystem import Entry, LibraryFileSystem
 
@@ -25,10 +27,12 @@ logger = logging.getLogger(__name__)
 class Step:
     stage: str
     source: Path
-    destination: Path
+    destination: Path | None
     parents: tuple[Path, ...] = ()
     status: str = "planned"
     reason: str = ""
+    genre_tag: str | None = None
+    suggested_genres: tuple[str, ...] = ()
 
 
 @dataclass
@@ -61,7 +65,7 @@ class MovieManager(IMovieManager):
     def __init__(self) -> None:
         self.configService = None
         self.fileSystemService: LibraryFileSystem | None = None
-        self.filterService = None
+        self.filterService: IFilterService | None = None
         self.scrapperService = None
         self._entries: dict[Path, dict[str, list[Entry]]] = {}
         self._reserved_targets: dict[tuple[str, ...], tuple[Path, Path]] = {}
@@ -74,7 +78,7 @@ class MovieManager(IMovieManager):
     def setServiceFileSystem(self, filesystem: LibraryFileSystem) -> None:
         self.fileSystemService = filesystem
 
-    def setServiceFilter(self, service) -> None:
+    def setServiceFilter(self, service: IFilterService) -> None:
         self.filterService = service
 
     def setServiceScrapper(self, service) -> None:
@@ -104,13 +108,18 @@ class MovieManager(IMovieManager):
         for entry in fs.entries(roots["RAW"]):
             if reserved(entry.path.name):
                 continue
-            genre = self.filterService.getGenreByFolderName(entry.path.name)
-            if entry.kind == "directory" and genre not in {"Unknown", ""}:
-                candidates.append((entry, genre))
+            if entry.kind == "directory":
+                genre = self.filterService.genre_tag(entry.path.name)
+                if genre is None:
+                    self._issue(
+                        run, entry.path, entry.path, "missing_genre_tag", "skipped"
+                    )
+                elif (canonical := self.filterService.resolve_genre(genre)) is not None:
+                    candidates.append((entry, canonical))
+                else:
+                    self._unknown_genre(run, entry.path, genre)
             elif entry.kind == "link":
                 self._issue(run, entry.path, entry.path, "link_not_followed", "skipped")
-            elif entry.kind == "directory":
-                self._issue(run, entry.path, entry.path, "missing_genre_tag", "skipped")
             elif entry.kind == "file" and entry.path.suffix.lower() in VIDEO_SUFFIXES:
                 self._issue(run, entry.path, entry.path, "loose_raw_video", "skipped")
 
@@ -119,8 +128,7 @@ class MovieManager(IMovieManager):
         limit = config.get_limit()
         for entry, genre in candidates[: limit or None]:
             try:
-                canonical = self.filterService.getGenreByMostLikehood(genre)
-                self._plan_movie(run, entry.path, canonical, from_raw=True)
+                self._plan_movie(run, entry.path, genre, from_raw=True)
             except (OSError, ValueError) as exc:
                 self._issue(run, entry.path, entry.path, str(exc), "error")
         run.jobs = [job for job in run.jobs if job[0].source not in self._blocked]
@@ -180,14 +188,24 @@ class MovieManager(IMovieManager):
                             source.name
                         ).startswith(TRANSFER_PREFIX):
                             continue
-                        clean = self.filterService.clean_folder_name(source.name)
                         if (
                             movie.kind != "directory"
                             or len(movies) != 1
                             or reserved(source.name)
                         ):
                             self._issue(run, source, source, "unrecognized_temp_entry")
-                        elif not recover:
+                            continue
+                        tag = self.filterService.genre_tag(source.name)
+                        if tag is not None:
+                            canonical = self.filterService.resolve_genre(tag)
+                            if canonical is None:
+                                self._unknown_genre(run, source, tag)
+                                continue
+                            if canonical != genre:
+                                self._issue(run, source, source, "temp_genre_mismatch")
+                                continue
+                        if not recover:
+                            clean = self.filterService.clean_folder_name(source.name)
                             self._issue(
                                 run,
                                 source,
@@ -218,6 +236,19 @@ class MovieManager(IMovieManager):
             Step(stage, source, destination, status=status, reason=reason)
         )
 
+    def _unknown_genre(self, run: Run, source: Path, tag: str) -> None:
+        run.issues.append(
+            Step(
+                "review",
+                source,
+                None,
+                status="conflict",
+                reason="unknown_genre_tag",
+                genre_tag=tag,
+                suggested_genres=self.filterService.suggest_genres(tag),
+            )
+        )
+
     def _plan_movie(
         self, run: Run, source: Path, genre: str, *, from_raw: bool
     ) -> None:
@@ -237,18 +268,17 @@ class MovieManager(IMovieManager):
         except ValueError as exc:
             self._issue(run, source, final, str(exc))
             return
+        for relative, entry in tree.items():
+            reason = movie_entry_issue(
+                entry.path.name,
+                allow_synology_metadata=bool(relative.parts)
+                and entry.kind == "directory",
+            )
+            if reason:
+                self._issue(run, source, final, reason)
+                return
         if not any(entry.kind == "file" for entry in tree.values()):
             self._issue(run, source, final, "empty_directory", "skipped")
-            return
-        if any(reserved(part) for relative in tree for part in relative.parts):
-            self._issue(run, source, final, "reserved_entry_inside_movie")
-            return
-
-        if any(
-            name_key(entry.path.name).startswith("alreadycopied_")
-            for entry in tree.values()
-        ):
-            self._issue(run, source, final, "legacy_partial_transfer_marker")
             return
 
         staged = temp_genre / source.name if from_raw else source
@@ -351,6 +381,7 @@ class MovieManager(IMovieManager):
         created: set[Path] = set()
         for job in run.jobs:
             for step in job:
+                assert step.destination is not None
                 step.status = "in_progress"
                 logger.info("%s: %s -> %s", step.stage, step.source, step.destination)
                 try:
