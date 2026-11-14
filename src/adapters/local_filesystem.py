@@ -1,5 +1,7 @@
 """Local library adapter shared by the Synology, macOS, and Windows entry points."""
 
+from __future__ import annotations
+
 import errno
 import hashlib
 import logging
@@ -122,7 +124,7 @@ class LocalFileSystem(IFileSystem):
             if (
                 kind not in {"directory", "file"}
                 or info.st_dev != root.st_dev
-                or (current != path and kind == "directory" and current.is_mount())
+                or (os.name != "nt" and kind == "directory" and current.is_mount())
             ):
                 raise ValueError(
                     f"Cannot transfer a link, special file or nested mount: {current}"
@@ -178,6 +180,13 @@ class LocalFileSystem(IFileSystem):
         except OSError as exc:
             if exc.errno != errno.EXDEV and getattr(exc, "winerror", None) != 17:
                 raise
+            if any(
+                stat.S_ISREG(info.st_mode) and info.st_nlink > 1
+                for info in snapshot.values()
+            ):
+                raise ValueError(
+                    f"Cross-filesystem move cannot preserve hard links: {source}"
+                ) from exc
             self._verified_copy(source, destination, snapshot, remove_source=True)
         else:
             _sync_directory(destination.parent)

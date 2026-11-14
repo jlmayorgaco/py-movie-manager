@@ -13,7 +13,7 @@ implementación local en `src/adapters`.
 
 ## Instalación y configuración
 
-Se requiere Python 3.10 o posterior. El programa usa solo la biblioteca estándar.
+Se requiere Python 3.9 o posterior. El programa usa solo la biblioteca estándar.
 Para una instalación nueva en Synology:
 
 ```bash
@@ -173,8 +173,9 @@ prueba Linux, Windows y macOS. La publicación de carpetas requiere una operaci�
 atómica sin reemplazo del sistema de archivos. Si el kernel o la unidad de red
 no la admite, el movimiento falla de forma conservadora. Entre volúmenes se
 requiere espacio para la copia completa y se verifica SHA-256 antes de limpiar
-el origen. La copia no promete conservar ACL, propietarios, enlaces duros como
-enlaces, ni atributos específicos de todos los sistemas.
+el origen. Un traslado entre volúmenes se detiene si encuentra enlaces duros.
+La copia no promete conservar ACL, propietarios ni atributos específicos de
+todos los sistemas.
 
 Mantén copias de seguridad y evita que otros procesos descarguen, renombren o
 escriban en las carpetas que se están moviendo. La aplicación serializa sus

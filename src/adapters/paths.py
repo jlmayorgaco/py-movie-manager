@@ -1,5 +1,7 @@
 """Validation shared by the filesystem and the CLI's output adapter."""
 
+from __future__ import annotations
+
 import os
 import stat
 from pathlib import Path

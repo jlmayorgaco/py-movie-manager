@@ -1,5 +1,7 @@
 """Plan and execute the RAW -> TEMP -> VOSE use case through filesystem ports."""
 
+from __future__ import annotations
+
 import logging
 from collections import Counter
 from dataclasses import asdict, dataclass, field

@@ -1,4 +1,8 @@
 import errno
+import os
+import sys
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -141,3 +145,31 @@ def test_cleanup_failure_leaves_a_complete_final_copy(cross_device, monkeypatch)
     assert (dest / "movie.mkv").read_bytes() == b"feature"
     assert (dest / "es.srt").read_bytes() == b"subtitle"
     assert (dest / "extras/poster.jpg").read_bytes() == b"image"
+
+
+def test_cross_device_hard_links_are_preserved(cross_device):
+    fs, source, dest = cross_device
+    os.link(source / "movie.mkv", source / "linked.mkv")
+    before = snapshot(source)
+    with pytest.raises(ValueError, match="cannot preserve hard links"):
+        fs.transfer(source, dest)
+    assert snapshot(source) == before
+    assert not list(dest.parent.iterdir())
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires Linux tmpfs")
+def test_real_cross_device_transfer(library):
+    _, raw, _, _ = library
+    shared_memory = Path("/dev/shm")
+    if not shared_memory.is_dir() or shared_memory.stat().st_dev == raw.stat().st_dev:
+        pytest.skip("no separate tmpfs volume")
+    with TemporaryDirectory(prefix="pymovie-test-", dir=shared_memory) as temporary:
+        target = Path(temporary)
+        fs = FileSystemSynologyOS(apply=True, roots=(raw, target))
+        source = make_movie(raw / "movie")
+        destination = target / "movie"
+        fs.transfer(source, destination)
+        assert not source.exists()
+        assert (destination / "movie.mkv").read_bytes() == b"feature"
+        assert (destination / "es.srt").read_bytes() == b"subtitle"
+        assert list(target.iterdir()) == [destination]

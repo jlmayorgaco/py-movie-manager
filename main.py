@@ -1,5 +1,7 @@
 """CLI composition root for the organization and inventory use cases."""
 
+from __future__ import annotations
+
 import argparse
 import logging
 from contextlib import nullcontext
