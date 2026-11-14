@@ -3,7 +3,6 @@ from src.domain.classes.FilterServiceDefaultClass import FilterServiceDefault
 
 
 class TestFilterServiceDefault(unittest.TestCase):
-
     def setUp(self):
         self.filter_service = FilterServiceDefault()
         self.filter_service.setGenres(["Action", "Comedy", "Drama", "Thriller"])
@@ -33,12 +32,12 @@ class TestFilterServiceDefault(unittest.TestCase):
     def test_extractTags(self):
         folder_name = "[g-Comedy][d-Tarantino] A Funny Movie"
         tags = self.filter_service.extractTags(folder_name)
-        self.assertEqual(tags, {'genre': "Comedy", 'director': "Tarantino"})
+        self.assertEqual(tags, {"genre": "Comedy", "director": "Tarantino"})
 
     def test_extractTags_unknown(self):
         folder_name = "Untitled"
         tags = self.filter_service.extractTags(folder_name)
-        self.assertEqual(tags, {'genre': "Unknown", 'director': "Unknown"})
+        self.assertEqual(tags, {"genre": "Unknown", "director": "Unknown"})
 
 
 if __name__ == "__main__":

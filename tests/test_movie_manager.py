@@ -1,116 +1,210 @@
-import unittest
-from unittest.mock import MagicMock
-import os
-import shutil
-from src.domain.classes.MovieManagerClass import MovieManager
-from src.domain.classes.ConfigClass import Config
+import errno
+import json
+
+import pytest
+
+from conftest import make_movie, snapshot
+from main import main
+from src.adapters import local_filesystem
 
 
-class TestMovieManager(unittest.TestCase):
-
-    def setUp(self):
-        self.sandbox_dir = os.path.abspath("tests/test_movie_manager__sandbox")
-        self.raw_dir = os.path.join(self.sandbox_dir, "RAW")
-        self.vose_dir = os.path.join(self.sandbox_dir, "VOSE")
-        self.temp_dir = os.path.join(self.sandbox_dir, "__TMM_TEMP__")
-
-        if os.path.exists(self.sandbox_dir):
-            shutil.rmtree(self.sandbox_dir)
-
-        os.makedirs(self.raw_dir, exist_ok=True)
-        os.makedirs(self.vose_dir, exist_ok=True)
-
-        self.mock_file_system = MagicMock()
-        self.mock_filter_service = MagicMock()
-        self.mock_scrapper_service = MagicMock()
-
-        self.mock_config_service = Config()
-        self.mock_config_service.directory_raw = self.raw_dir
-        self.mock_config_service.directory_vose = self.vose_dir
-        self.mock_config_service.genres = ["Action", "Comedy", "Drama"]
-
-        self.mock_file_system.join.side_effect = os.path.join
-
-        self.manager = MovieManager()
-        self.manager.setServiceConfig(self.mock_config_service)
-        self.manager.setServiceFileSystem(self.mock_file_system)
-        self.manager.setServiceFilter(self.mock_filter_service)
-        self.manager.setServiceScrapper(self.mock_scrapper_service)
-
-    def tearDown(self):
-        if os.path.exists(self.sandbox_dir):
-            shutil.rmtree(self.sandbox_dir)
-
-    def test_start(self):
-        self.manager.start()
-        self.mock_file_system.cd.assert_any_call(self.raw_dir)
-        self.mock_file_system.rmdir.assert_called_with(self.temp_dir)
-        self.mock_file_system.mkdir.assert_called_with(self.temp_dir)
-        self.mock_file_system.cd.assert_called_with(self.temp_dir)
-
-    def test_creating_temp_genres(self):
-        self.manager.creating_temp_genres()
-        self.mock_file_system.cd.assert_called_with(self.temp_dir)
-        for genre in self.mock_config_service.genres:
-            self.mock_file_system.mkdir.assert_any_call(genre)
-
-    def test_moving_to_temp(self):
-        folders = ["Movie1 [g-Action]", "Movie2 [g-Comedy]", "Movie3 [g-Drama]"]
-        self.mock_file_system.get_folders.return_value = folders
-        self.mock_filter_service.getGenreByFolderName.side_effect = ["Action", "Comedy", "Drama"]
-        self.mock_filter_service.getGenreByMostLikehood.side_effect = ["Action", "Comedy", "Drama"]
-
-        self.manager.moving_to_temp()
-        for folder, genre in zip(folders, self.mock_config_service.genres):
-            from_path = os.path.join(self.raw_dir, folder)
-            to_path = os.path.join(self.temp_dir, genre)
-            self.mock_file_system.move.assert_any_call(from_path, to_path)
-
-    def test_renaming_in_temp(self):
-        genre_folders = ["Action", "Comedy"]
-        movie_folders_action = ["Movie1 [g-Action]"]
-        movie_folders_comedy = ["Movie2 [g-Comedy]"]
-
-        self.mock_file_system.get_folders.side_effect = [
-            genre_folders,
-            movie_folders_action,
-            movie_folders_comedy,
-        ]
-        self.mock_filter_service.clean.side_effect = ["Movie1", "Movie2"]
-
-        self.manager.renaming_in_temp()
-        self.mock_file_system.cd.assert_any_call(self.temp_dir)
-
-        for genre in genre_folders:
-            self.mock_file_system.cd.assert_any_call(genre)
-
-        self.mock_file_system.rename.assert_any_call("Movie1 [g-Action]", "Movie1")
-        self.mock_file_system.rename.assert_any_call("Movie2 [g-Comedy]", "Movie2")
-
-    def test_moving_to_vose(self):
-        genre_folders = ["Action", "Comedy"]
-        self.mock_file_system.get_folders.return_value = genre_folders
-
-        self.manager.moving_to_vose()
-        for genre in genre_folders:
-            from_path = os.path.join(self.temp_dir, genre)
-            to_path = self.vose_dir
-            self.mock_file_system.move.assert_any_call(from_path, to_path)
-
-    def test_deleting_temp(self):
-        self.manager.deleting_temp()
-        self.mock_file_system.rmdir.assert_called_with(self.temp_dir)
-
-    def test_prepare_temp_directory(self):
-        self.manager._prepare_temp_directory(self.temp_dir)
-        self.mock_file_system.rmdir.assert_called_with(self.temp_dir)
-        self.mock_file_system.mkdir.assert_called_with(self.temp_dir)
-        self.mock_file_system.cd.assert_called_with(self.temp_dir)
-
-    def test_get_temp_path(self):
-        temp_path = self.manager._get_temp_path(self.raw_dir)
-        self.assertEqual(temp_path, os.path.join(self.sandbox_dir, "__TMM_TEMP__"))
+@pytest.mark.parametrize("options", [[], ["--dry-run"], ["--plan"]])
+def test_default_and_explicit_dry_run_plan_all_stages(library, options):
+    config, raw, temp, vose = library
+    name = "[g-Drama][d-黒澤 明] Película 日本 [Extended Cut] (2001)"
+    movie = make_movie(raw / name)
+    before = snapshot(raw, temp, vose)
+    report = config.with_name("plan.json")
+    assert (
+        main(
+            [
+                "--os",
+                "synology",
+                "--config",
+                str(config),
+                "--report",
+                str(report),
+                *options,
+            ]
+        )
+        == 0
+    )
+    assert snapshot(raw, temp, vose) == before
+    plan = json.loads(report.read_text(encoding="utf-8"))
+    assert plan["mode"] == "dry-run"
+    assert plan["counts"] == {"planned": 3}
+    first, rename, last = plan["operations"]
+    assert [step["stage"] for step in (first, rename, last)] == [
+        "raw_to_temp",
+        "rename_in_temp",
+        "temp_to_vose",
+    ]
+    assert first["source"] == str(movie)
+    assert first["destination"] == rename["source"]
+    assert rename["destination"] == last["source"]
+    assert last["destination"] == str(
+        vose / "DRAMA" / "Película 日本 [Extended Cut] (2001)"
+    )
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_apply_several_genres_editions_and_companion_files(library):
+    config, raw, temp, vose = library
+    (vose / "Drama").mkdir()
+    names = [
+        "[g-Drama] Le Film (2005) [Extended Cut]",
+        "[g-Drama] Le Film (2005) [Theatrical Cut]",
+        "[g-Science Fiction] 한국 (2011)",
+    ]
+    for name in names:
+        make_movie(raw / name)
+    empty = make_movie(raw / "[g-Drama] Empty", {})
+    untagged = make_movie(raw / "Untagged")
+    args = ["--os", "synology", "--config", str(config), "--apply"]
+    assert main(args) == 0
+    assert set(path.name for path in raw.iterdir()) == {empty.name, untagged.name}
+    first = vose / "Drama" / "Le Film (2005) [Extended Cut]"
+    assert (first / "es.srt").read_bytes() == b"subtitle"
+    assert (first / "extras/poster.jpg").read_bytes() == b"image"
+    assert (vose / "Drama/Le Film (2005) [Theatrical Cut]/movie.mkv").is_file()
+    assert (vose / "SCIENCE_FICTION/한국 (2011)/movie.mkv").is_file()
+    after = snapshot(raw, temp, vose)
+    assert main(args) == 0
+    assert snapshot(raw, temp, vose) == after
+
+
+@pytest.mark.parametrize(
+    ("destination_files", "reason"),
+    [
+        ({"movie.mkv": b"aaa", "es.srt": b"s"}, "identical_tree_preserved"),
+        ({"movie.mkv": b"bbb", "es.srt": b"s"}, "same_name_different_content"),
+        (
+            {"movie.mkv": b"aaa", "es.srt": b"s", "en.ass": b"sub"},
+            "destination_has_additional_entries",
+        ),
+        (
+            {"movie.mkv": b"aaa"},
+            "destination_missing_entries_possible_partial_transfer",
+        ),
+        (
+            {"remastered.mkv": b"aaa", "es.srt": b"s"},
+            "different_releases_or_companion_files",
+        ),
+    ],
+)
+def test_conflicts_preserve_both_trees_and_continue(library, destination_files, reason):
+    config, raw, temp, vose = library
+    movie = make_movie(
+        raw / "[g-Drama] A (2001)", {"movie.mkv": b"aaa", "es.srt": b"s"}
+    )
+    destination = make_movie(vose / "DRAMA/A (2001)", destination_files)
+    make_movie(raw / "[g-Comedy] B (2011)")
+    before = snapshot(movie, destination)
+    report = config.with_name("results.json")
+    assert main(["--config", str(config), "--apply", "--report", str(report)]) == 2
+    assert snapshot(movie, destination) == before
+    assert (vose / "COMEDY/B (2011)/movie.mkv").is_file()
+    result = json.loads(report.read_text(encoding="utf-8"))
+    assert result["counts"] == {"conflict": 1, "completed": 3}
+    conflict = result["operations"][0]
+    assert (conflict["source"], conflict["destination"], conflict["reason"]) == (
+        str(movie),
+        str(destination),
+        reason,
+    )
+
+
+def test_two_raw_names_that_clean_to_same_destination(library):
+    config, raw, temp, vose = library
+    first = make_movie(raw / "[g-Drama][d-A] Film", {"movie.mkv": b"A"})
+    second = make_movie(raw / "[g-Drama][d-B] Film", {"movie.mkv": b"B"})
+    assert main(["--config", str(config), "--apply"]) == 2
+    assert (first / "movie.mkv").read_bytes() == b"A"
+    assert (second / "movie.mkv").read_bytes() == b"B"
+    assert not (vose / "DRAMA/Film").exists()
+
+
+def test_pending_temp_is_preserved_until_explicit_resume(library):
+    config, raw, temp, vose = library
+    legacy = make_movie(temp / "DRAMA/[g-Drama][d-Kim] Recovered (2012)")
+    (temp / "loose.iso").write_bytes(b"untouched")
+    before = snapshot(raw, temp, vose)
+    assert main(["--config", str(config), "--dry-run", "--resume"]) == 2
+    assert main(["--config", str(config), "--apply"]) == 2
+    assert snapshot(raw, temp, vose) == before
+    assert main(["--config", str(config), "--apply", "--resume"]) == 2
+    assert not legacy.exists()
+    assert (vose / "DRAMA/Recovered (2012)/movie.mkv").is_file()
+    assert (temp / "loose.iso").read_bytes() == b"untouched"
+
+
+def test_failed_final_move_can_resume_from_disk(library, monkeypatch):
+    config, raw, temp, vose = library
+    movie = make_movie(raw / "[g-Drama] Recover Me")
+    real = local_filesystem.rename_noreplace
+
+    def denied(source, destination):
+        if vose in destination.parents:
+            raise PermissionError(errno.EACCES, "synthetic permission failure")
+        real(source, destination)
+
+    args = ["--config", str(config), "--apply"]
+    with monkeypatch.context() as patch:
+        patch.setattr(local_filesystem, "rename_noreplace", denied)
+        assert main(args) == 1
+    assert not movie.exists()
+    assert (temp / "DRAMA/Recover Me/movie.mkv").is_file()
+    assert main([*args, "--resume"]) == 0
+    assert (vose / "DRAMA/Recover Me/movie.mkv").is_file()
+
+
+def test_apply_can_stop_before_known_conflict(library):
+    config, raw, temp, vose = library
+    make_movie(raw / "[g-Drama] A")
+    make_movie(vose / "DRAMA/A")
+    make_movie(raw / "[g-Comedy] B")
+    before = snapshot(raw, temp, vose)
+    assert main(["--config", str(config), "--apply", "--stop-on-conflict"]) == 2
+    assert snapshot(raw, temp, vose) == before
+
+
+def test_apply_respects_config_dry_run(library):
+    config, raw, temp, vose = library
+    data = json.loads(config.read_text(encoding="utf-8"))
+    data["dry_run"] = True
+    config.write_text(json.dumps(data), encoding="utf-8")
+    make_movie(raw / "[g-Drama] A")
+    before = snapshot(raw, temp, vose)
+    assert main(["--config", str(config), "--apply"]) == 1
+    assert snapshot(raw, temp, vose) == before
+
+
+def test_report_inside_library_is_refused_before_apply(library):
+    config, raw, temp, vose = library
+    make_movie(raw / "[g-Drama] A")
+    before = snapshot(raw, temp, vose)
+    assert (
+        main(["--config", str(config), "--apply", "--report", str(raw / "plan.json")])
+        == 1
+    )
+    assert snapshot(raw, temp, vose) == before
+
+
+def test_occupied_apply_lock_is_preserved(library):
+    config, raw, temp, vose = library
+    make_movie(raw / "[g-Drama] A")
+    lock = raw / ".pymovie-manager.lock"
+    lock.write_text("other run", encoding="utf-8")
+    before = snapshot(raw, temp, vose)
+    assert main(["--config", str(config), "--apply"]) == 1
+    assert snapshot(raw, temp, vose) == before
+
+
+def test_resume_keeps_legacy_partial_transfer_markers(library):
+    config, raw, temp, vose = library
+    make_movie(
+        temp / "DRAMA/Old Movie",
+        {"AlreadyCopied_feature.mkv": b"data", "extras.txt": b"notes"},
+    )
+    before = snapshot(raw, temp, vose)
+    assert main(["--config", str(config), "--apply", "--resume"]) == 2
+    assert snapshot(raw, temp, vose) == before

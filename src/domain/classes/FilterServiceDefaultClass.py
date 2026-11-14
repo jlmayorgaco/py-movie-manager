@@ -2,9 +2,19 @@ import logging
 import re
 from typing import List
 
-from Levenshtein import distance
-
+from src.domain.classes.LibraryNames import clean_name
 from src.domain.interfaces.IFilterServiceInterface import IFilterService
+
+
+def _distance(left: str, right: str) -> int:
+    row = list(range(len(right) + 1))
+    for i, a in enumerate(left, 1):
+        previous, row[0] = row[0], i
+        for j, b in enumerate(right, 1):
+            current = row[j]
+            row[j] = min(current + 1, row[j - 1] + 1, previous + (a != b))
+            previous = current
+    return row[-1]
 
 
 class FilterServiceDefault(IFilterService):
@@ -17,7 +27,6 @@ class FilterServiceDefault(IFilterService):
     GENRE_TAG_PATTERN = re.compile(r"\[g-(.*?)\]", re.IGNORECASE)
     DIRECTOR_TAG_PATTERN = re.compile(r"\[d-(.*?)\]", re.IGNORECASE)
     TAG_PAIR_PREFIX_PATTERN = re.compile(r"^\[g-(.*?)\]\[d-(.*?)\]", re.IGNORECASE)
-    ANY_TAG_PATTERN = re.compile(r"\[.*?\]")
     MULTISPACE_PATTERN = re.compile(r"\s{2,}")
 
     def __init__(self) -> None:
@@ -68,7 +77,7 @@ class FilterServiceDefault(IFilterService):
 
         most_similar = min(
             self.genres,
-            key=lambda x: distance(str(x).upper(), normalized_genre.upper()),
+            key=lambda x: _distance(x.casefold().replace("_", " "), normalized_genre.casefold()),
         )
         self.logger.debug(
             "Genre similarity match: input='%s' -> selected='%s'",
@@ -76,6 +85,8 @@ class FilterServiceDefault(IFilterService):
             most_similar,
         )
         return most_similar
+
+    getGenreByMostLikelihood = getGenreByMostLikehood
 
     def clean(self, folder_string: str) -> str:
         """
@@ -149,10 +160,6 @@ class FilterServiceDefault(IFilterService):
 
     def clean_folder_name(self, name: str) -> str:
         """
-        Remove [g-*], [d-*], and any other bracket tags from folder names,
-        then normalize whitespace.
+        Remove genre and director metadata while preserving edition tags.
         """
-        text = (name or "").strip()
-        cleaned = self.ANY_TAG_PATTERN.sub("", text)
-        cleaned = self.MULTISPACE_PATTERN.sub(" ", cleaned)
-        return cleaned.strip()
+        return clean_name(name or "")

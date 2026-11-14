@@ -20,6 +20,7 @@ class Config(IConfig):
         self._directory_temp: str = ""
         self._directory_vose: str = ""
         self._genres: List[GenresEnum] = []
+        self.inventory_roots: dict[str, str] = {}
         self._dry_run: bool = False
 
         # Runtime / CLI flags
@@ -51,9 +52,11 @@ class Config(IConfig):
             if normalized in {"false", "0", "no", "n", "off"}:
                 return False
 
-        return bool(value)
+        raise ValueError("Boolean settings must be true or false")
 
     def _to_non_negative_int(self, value, field_name: str) -> int:
+        if isinstance(value, bool) or not isinstance(value, (int, str)):
+            raise ValueError(f"{field_name} must be an integer.")
         try:
             parsed = int(value)
         except (TypeError, ValueError) as exc:
@@ -81,9 +84,25 @@ class Config(IConfig):
         with open(self._config_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        self._directory_raw = str(data.get("directory_raw", self._directory_raw) or "").strip()
-        self._directory_temp = str(data.get("directory_temp", self._directory_temp) or "").strip()
-        self._directory_vose = str(data.get("directory_vose", self._directory_vose) or "").strip()
+        if not isinstance(data, dict):
+            raise ValueError("Configuration must be a JSON object")
+
+        for key in ("raw", "temp", "vose"):
+            value = data.get(f"directory_{key}", "")
+            if not isinstance(value, str):
+                raise ValueError(f"directory_{key} must be a string")
+            setattr(self, f"_directory_{key}", value)
+
+        extra = data.get("inventory_roots", {})
+        if not isinstance(extra, dict):
+            raise ValueError("inventory_roots must map labels to paths")
+        used_labels = {"raw", "temp", "vose"}
+        for label, path in extra.items():
+            key = label.strip().casefold()
+            if not key or key in used_labels or not isinstance(path, str) or not path.strip():
+                raise ValueError("inventory_roots requires unique labels and nonempty paths")
+            self.inventory_roots[label.strip()] = path
+            used_labels.add(key)
 
         self._dry_run = self._to_bool(data.get("dry_run", self._dry_run))
         self._preflight = self._to_bool(data.get("preflight", self._preflight))

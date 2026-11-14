@@ -1,10 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -eu
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+SANDBOX="$PROJECT_DIR/__sandbox__"
 
-# Root sandbox directory
-SANDBOX="__sandbox__"
-
-echo "🧹 Cleaning old sandbox..."
-rm -rf "$SANDBOX"
+# Never reuse or remove a directory that could contain user data.
+if [ -e "$SANDBOX" ] || [ -L "$SANDBOX" ]; then
+  echo "Sandbox already exists: $SANDBOX. Move it aside after inspecting it." >&2
+  exit 1
+fi
+mkdir -- "$SANDBOX"
 mkdir -p "$SANDBOX/__RAW__"
 mkdir -p "$SANDBOX/__VOSE__"
 
@@ -47,7 +51,7 @@ create_movie_folder "$SANDBOX/__RAW__/[g-drama][d-sarah-cho] Life in Motion" \
 create_movie_folder "$SANDBOX/__RAW__/[g-documentary][d-jane-roberts] Nature's Truth" \
   "Planet Wild (2020).mp4"
 
-create_movie_folder "$SANDBOX/__RAW__/[g-documentary][d-ben-huang] AI: The Mirror" \
+create_movie_folder "$SANDBOX/__RAW__/[g-documentary][d-ben-huang] AI - The Mirror" \
   "Code and Soul (2023).mkv"
 
 create_movie_folder "$SANDBOX/__RAW__/[g-horror][d-jack-blake] Haunted Tales" \
@@ -83,4 +87,4 @@ create_movie_folder "$SANDBOX/__VOSE__/HORROR/Haunted Tales" \
 create_movie_folder "$SANDBOX/__VOSE__/ROMANCE/Love Happens" \
   "Kiss in Paris (2015).mp4"
 
-echo "✅ Sandbox reset and populated!"
+echo "✅ Sandbox created and populated!"

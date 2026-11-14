@@ -3,10 +3,12 @@ from src.domain.classes.ScrapperServiceIMDB import ScrapperServiceIMDB
 
 
 class TestScrapperServiceIMDB(unittest.TestCase):
-
     def setUp(self):
         self.scrapper = ScrapperServiceIMDB()
         self.scrapper.setApiKey("mock_api_key")
+
+    def test_string_representation_redacts_credentials(self):
+        self.assertNotIn("mock_api_key", str(self.scrapper))
 
     def test_setApiKey_valid(self):
         """

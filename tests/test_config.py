@@ -1,14 +1,21 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 from config.GenresConfig import GenresEnum
 from src.domain.classes.ConfigClass import Config
+
 
 class TestConfig(unittest.TestCase):
     def setUp(self):
         """
         Set up a Config instance for testing.
         """
-        self.config = Config()
+        fixture = tempfile.TemporaryDirectory()
+        self.addCleanup(fixture.cleanup)
+        config_path = Path(fixture.name) / "config.json"
+        config_path.write_text("{}", encoding="utf-8")
+        self.config = Config(str(config_path))
 
     def test_initial_state(self):
         """
@@ -70,12 +77,13 @@ class TestConfig(unittest.TestCase):
         genres = [GenresEnum.ACTION, GenresEnum.COMEDY]
         self.config.setGenres(genres)
 
-        expected_output = (
-            "Config::Directory Source </source/path>\n"
-            "Config::Directory Target </target/path>\n"
-            "Config::Genres <ACTION, COMEDY>"
-        )
-        self.assertEqual(str(self.config).strip(), expected_output)
+        for line in (
+            "Config::Directory Source </source/path>",
+            "Config::Directory Target </target/path>",
+            "Config::Genres <ACTION, COMEDY>",
+        ):
+            self.assertIn(line, str(self.config).splitlines())
+
 
 if __name__ == "__main__":
     unittest.main()

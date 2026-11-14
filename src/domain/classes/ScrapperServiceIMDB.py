@@ -14,13 +14,7 @@ class ScrapperServiceIMDB(IScrapper):
         self.apiKey: Optional[str] = None
 
     def __str__(self) -> str:
-        """
-        String representation of the current API key configuration.
-
-        Returns:
-            str: A string containing the API key.
-        """
-        return f"ScrapperServiceIMDB::apiKey <{self.apiKey}>"
+        return f"ScrapperServiceIMDB(configured={bool(self.apiKey)})"
 
     def setApiKey(self, apikey: str) -> None:
         """

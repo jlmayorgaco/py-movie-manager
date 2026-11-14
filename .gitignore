@@ -33,7 +33,12 @@ build/
 # Environment / Credentials
 # ----------------------------------
 .env
-config/config.json  # if it contains personal paths or dry_run
+.env.*
+!*.env.example
+config/*.local.json
+reports/
+/__sandbox__/
+.ruff_cache/
 
 # ----------------------------------
 # macOS
