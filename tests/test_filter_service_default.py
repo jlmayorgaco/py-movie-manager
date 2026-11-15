@@ -2,7 +2,7 @@ import unittest
 
 import pytest
 
-from config.GenresConfig import GenresEnum
+from config.GenresConfig import GENRE_REVIEW_HINTS, GenresEnum
 from src.domain.classes.FilterServiceDefaultClass import FilterServiceDefault
 
 
@@ -97,6 +97,20 @@ class TestFilterServiceDefault(unittest.TestCase):
         ("Children", "FAMILY"),
         ("Bollywood", "BOLLYWOOD"),
         ("Cine independiente", "INDIE"),
+        ("Cine de acción", "ACTION"),
+        ("Acción + aventura", "ACTION_ADVENTURE"),
+        ("Dibujos animados", "ANIMATION"),
+        ("Japanese Anime", "ANIME"),
+        ("Cine negro clásico", "FILM_NOIR"),
+        ("Cine negro contemporáneo", "NEO_NOIR"),
+        ("Historical Film", "HISTORY"),
+        ("Historia de amor", "ROMANCE"),
+        ("Concert Film", "MUSIC"),
+        ("Película musical", "MUSICAL"),
+        ("Cine de guerra", "WAR"),
+        ("Película televisiva", "TV_MOVIE"),
+        ("Limited Series", "MINI_SERIES"),
+        ("Fantasia y ciencia ficcion", "SCIENCE_FICTION_FANTASY"),
         ("Comedia / Drama", None),
         ("Thriler", None),
         ("", None),
@@ -112,6 +126,23 @@ def test_resolver_never_enables_an_unconfigured_genre():
     service = FilterServiceDefault()
     service.setGenres(["Music"])
     assert service.resolve_genre("Bélica") is None
+
+
+def test_related_labels_cannot_become_automatic_destinations():
+    service = FilterServiceDefault()
+    service.setGenres([item.name for item in GenresEnum])
+    for labels, genres in GENRE_REVIEW_HINTS.items():
+        expected = tuple(sorted(genre.name for genre in genres))
+        for label in labels:
+            assert service.resolve_genre(label) is None, label
+            assert service.suggest_genres(label) == expected, label
+
+
+def test_related_suggestions_only_include_configured_genres():
+    service = FilterServiceDefault()
+    service.setGenres(["Comedy"])
+    assert service.suggest_genres("COMEDIA-ROMÁNTICA") == ("Comedy",)
+    assert service.resolve_genre("COMEDIA-ROMÁNTICA") is None
 
 
 @pytest.mark.parametrize("genre", list(GenresEnum))

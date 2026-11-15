@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-from config.GenresConfig import GENRE_ALIASES, GenresEnum
+from config.GenresConfig import GENRE_ALIASES, GENRE_REVIEW_HINTS, GenresEnum
 from src.domain.classes.LibraryNames import DIRECTOR_TAG, GENRE_TAG, clean_name
 from src.domain.interfaces.IFilterServiceInterface import IFilterService
 
@@ -47,6 +47,11 @@ def _build_genre_keys() -> dict[str, str]:
 
 
 _GENRE_KEYS = _build_genre_keys()
+_REVIEW_GENRE_KEYS = {
+    _genre_key(label): tuple(_genre_key(genre.name) for genre in suggestions)
+    for labels, suggestions in GENRE_REVIEW_HINTS.items()
+    for label in labels
+}
 
 
 class FilterServiceDefault(IFilterService):
@@ -81,10 +86,18 @@ class FilterServiceDefault(IFilterService):
         return self._configured_genres.get(_GENRE_KEYS.get(key, key))
 
     def suggest_genres(self, genre: str) -> tuple[str, ...]:
-        """Suggest configured genres within one edit of an explicit label."""
+        """Suggest genres for known related labels or close spelling errors."""
         key = _genre_key(genre)
         if len(key) < 3 or self.resolve_genre(genre) is not None:
             return ()
+        if key in _REVIEW_GENRE_KEYS:
+            return tuple(
+                sorted(
+                    self._configured_genres[canonical]
+                    for canonical in _REVIEW_GENRE_KEYS[key]
+                    if canonical in self._configured_genres
+                )
+            )
         labels = {**{label: label for label in self._configured_genres}, **_GENRE_KEYS}
         return tuple(
             sorted(

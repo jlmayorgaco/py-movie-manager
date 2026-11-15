@@ -94,6 +94,8 @@ y variantes en español. Se consulta localmente desde
 
 La etiqueta `[g-...]` se compara con los nombres y alias después de normalizar
 mayúsculas, acentos, espacios, puntos y guiones. `Bélica` y `War` van a `WAR`.
+`Cine de guerra` y `War Movie` también apuntan a `WAR`. `Dibujos animados`
+apunta a `ANIMATION` y `Anime japonés` a `ANIME`.
 `Película de Televisión`, `Película de TV` y `TV Movie` van a `TV_MOVIE`.
 `Musical` tiene su propio destino `MUSICAL` y `Música` va a `MUSIC`.
 `Suspense` y `Suspenso` siguen apuntando a `THRILLER`. `Bollywood` e
@@ -102,8 +104,10 @@ mayúsculas, acentos, espacios, puntos y guiones. `Bélica` y `War` van a `WAR`.
 
 La etiqueta de director no interviene en la clasificación. Ambas etiquetas
 se quitan del nombre de la carpeta de destino. Una etiqueta desconocida queda
-en su carpeta original y aparece como `unknown_genre_tag` en el informe. Una
-sugerencia como `THRILLER` para `Thriler` solo sirve para revisión.
+en su carpeta original y aparece como `unknown_genre_tag` en el informe.
+`suggested_genres` muestra coincidencias cercanas para errores como `Thriler`
+o para etiquetas relacionadas. Por ejemplo, `Comedia romántica` sugiere
+`COMEDY` y `ROMANCE`. Las sugerencias son para revisión manual.
 Con `--resume`, si una etiqueta conservada en TEMP contradice el género de la
 carpeta que la contiene, el informe indica `temp_genre_mismatch` y no la mueve.
 

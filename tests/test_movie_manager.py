@@ -214,20 +214,21 @@ def test_full_plan_only_routes_recognized_genres_and_keeps_suggestions_in_review
     library,
 ):
     config, raw, temp, vose = library
-    known = make_movie(raw / "[g-Bélica][d-MUSIC] Army of Shadows (1969)")
+    known = make_movie(raw / "[g-Cine de guerra][d-MUSIC] Army of Shadows (1969)")
     tv_movie = make_movie(raw / "[g-Película de Televisión][d-Drama] TV Film")
     musical = make_movie(raw / "[g-Musical] Song and Dance")
     unknown = make_movie(raw / "[g-Género experimental] Experiment")
     typo = make_movie(raw / "[g-Thriler][d-War] Misspelled")
+    subgenre = make_movie(raw / "[g-Comedia romántica] About a Date")
     original = snapshot(raw, temp, vose)
-    unknown_sources = snapshot(unknown, typo)
+    unknown_sources = snapshot(unknown, typo, subgenre)
     report = config.with_name("all.json")
     args = ["--os", "synology", "--config", str(config)]
 
     assert main([*args, "--dry-run", "--report", str(report)]) == 2
     assert snapshot(raw, temp, vose) == original
     result = json.loads(report.read_text(encoding="utf-8"))
-    assert result["counts"] == {"conflict": 2, "planned": 9}
+    assert result["counts"] == {"conflict": 3, "planned": 9}
     review = {
         item["genre_tag"]: item
         for item in result["operations"]
@@ -236,6 +237,7 @@ def test_full_plan_only_routes_recognized_genres_and_keeps_suggestions_in_review
     for tag, source, suggestions in (
         ("Género experimental", unknown, []),
         ("Thriler", typo, ["THRILLER"]),
+        ("Comedia romántica", subgenre, ["COMEDY", "ROMANCE"]),
     ):
         assert review[tag]["reason"] == "unknown_genre_tag"
         assert review[tag]["source"] == str(source)
@@ -256,7 +258,7 @@ def test_full_plan_only_routes_recognized_genres_and_keeps_suggestions_in_review
     assert not known.exists()
     assert not tv_movie.exists()
     assert not musical.exists()
-    assert snapshot(unknown, typo) == unknown_sources
+    assert snapshot(unknown, typo, subgenre) == unknown_sources
     assert {p.name for p in vose.iterdir()} == {"WAR", "TV_MOVIE", "MUSICAL"}
 
 
