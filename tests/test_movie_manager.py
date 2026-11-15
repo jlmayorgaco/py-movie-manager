@@ -216,52 +216,64 @@ def test_full_plan_only_routes_recognized_genres_and_keeps_suggestions_in_review
     config, raw, temp, vose = library
     known = make_movie(raw / "[g-Bélica][d-MUSIC] Army of Shadows (1969)")
     tv_movie = make_movie(raw / "[g-Película de Televisión][d-Drama] TV Film")
+    musical = make_movie(raw / "[g-Musical] Song and Dance")
+    unknown = make_movie(raw / "[g-Género experimental] Experiment")
     typo = make_movie(raw / "[g-Thriler][d-War] Misspelled")
     original = snapshot(raw, temp, vose)
-    unknown_sources = snapshot(tv_movie, typo)
+    unknown_sources = snapshot(unknown, typo)
     report = config.with_name("all.json")
     args = ["--os", "synology", "--config", str(config)]
 
     assert main([*args, "--dry-run", "--report", str(report)]) == 2
     assert snapshot(raw, temp, vose) == original
     result = json.loads(report.read_text(encoding="utf-8"))
-    assert result["counts"] == {"conflict": 2, "planned": 3}
+    assert result["counts"] == {"conflict": 2, "planned": 9}
     review = {
         item["genre_tag"]: item
         for item in result["operations"]
         if item["stage"] == "review"
     }
     for tag, source, suggestions in (
-        ("Película de Televisión", tv_movie, []),
+        ("Género experimental", unknown, []),
         ("Thriler", typo, ["THRILLER"]),
     ):
         assert review[tag]["reason"] == "unknown_genre_tag"
         assert review[tag]["source"] == str(source)
         assert review[tag]["destination"] is None
         assert review[tag]["suggested_genres"] == suggestions
-    planned = [item for item in result["operations"] if item["status"] == "planned"]
-    assert planned[0]["source"] == str(known)
-    assert planned[-1]["destination"] == str(vose / "WAR/Army of Shadows (1969)")
+    destinations = {
+        item["destination"]
+        for item in result["operations"]
+        if item["status"] == "planned" and item["stage"] == "temp_to_vose"
+    }
+    assert destinations == {
+        str(vose / "WAR/Army of Shadows (1969)"),
+        str(vose / "TV_MOVIE/TV Film"),
+        str(vose / "MUSICAL/Song and Dance"),
+    }
 
     assert main([*args, "--apply"]) == 2
     assert not known.exists()
-    assert snapshot(tv_movie, typo) == unknown_sources
-    assert list(vose.iterdir()) == [vose / "WAR"]
+    assert not tv_movie.exists()
+    assert not musical.exists()
+    assert snapshot(unknown, typo) == unknown_sources
+    assert {p.name for p in vose.iterdir()} == {"WAR", "TV_MOVIE", "MUSICAL"}
 
 
 def test_resume_does_not_trust_temp_category_over_explicit_raw_tag(library):
     config, raw, temp, vose = library
     tv_movie = make_movie(temp / "SCIENCE_FICTION/[g-Película de Televisión] TV Film")
     misclassified = make_movie(temp / "MUSIC/[g-Bélica] Film")
+    unknown = make_movie(temp / "DRAMA/[g-Género experimental] Experiment")
     valid = make_movie(temp / "WAR/[g-Guerra][d-Kinuyo Tanaka] Recovered")
-    conflicts = snapshot(tv_movie, misclassified)
+    conflicts = snapshot(tv_movie, misclassified, unknown)
     report = config.with_name("resume.json")
 
     assert (
         main(["--config", str(config), "--apply", "--resume", "--report", str(report)])
         == 2
     )
-    assert snapshot(tv_movie, misclassified) == conflicts
+    assert snapshot(tv_movie, misclassified, unknown) == conflicts
     assert not valid.exists()
     assert (vose / "WAR/Recovered/movie.mkv").is_file()
     result = json.loads(report.read_text(encoding="utf-8"))

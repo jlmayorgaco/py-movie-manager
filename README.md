@@ -84,17 +84,26 @@ La presencia en la biblioteca no registra si alguien vio o disfrutó la películ
 
 ## Etiquetas de género
 
-La organización acepta los nombres de `GenresEnum` y los alias explícitos de
-[`config/GenresConfig.py`](config/GenresConfig.py). Ignora mayúsculas, acentos y
-diferencias de espacios, guiones y guiones bajos. Por ejemplo, `Bélica`,
-`BÉLICA`, `belica` y `War` van a `WAR`; `Ciencia Ficción` y
-`science_fiction` van a `SCIENCE_FICTION`. La etiqueta de director no interviene
-en esa decisión. Ambas etiquetas se quitan del nombre de la carpeta de destino.
+El diccionario incluye las categorías de estos catálogos, con nombres en inglés
+y variantes en español. Se consulta localmente desde
+[`config/GenresConfig.py`](config/GenresConfig.py).
 
-Una etiqueta desconocida, como `Película de Televisión`, queda en su carpeta
-original y aparece en el informe como `unknown_genre_tag`, sin destino. El
-informe puede sugerir géneros para errores de escritura cercanos —por ejemplo,
-`THRILLER` para `Thriler`—; las sugerencias nunca generan operaciones de traslado.
+- tinyMediaManager. [Lista integrada](https://gitlab.com/tinyMediaManager/tinyMediaManager/-/blob/devel/src/main/java/org/tinymediamanager/core/entities/MediaGenres.java#L40) y [traducciones en español](https://gitlab.com/tinyMediaManager/tinyMediaManager/-/blob/devel/src/main/resources/messages_es.properties#L744).
+- IMDb. [Guía de géneros](https://contribute.imdb.com/updates/guide/genres).
+- TMDB. [Géneros de películas](https://developer.themoviedb.org/reference/genre-movie-list) y [géneros de series](https://developer.themoviedb.org/reference/genre-tv-list).
+
+La etiqueta `[g-...]` se compara con los nombres y alias después de normalizar
+mayúsculas, acentos, espacios, puntos y guiones. `Bélica` y `War` van a `WAR`.
+`Película de Televisión`, `Película de TV` y `TV Movie` van a `TV_MOVIE`.
+`Musical` tiene su propio destino `MUSICAL` y `Música` va a `MUSIC`.
+`Suspense` y `Suspenso` siguen apuntando a `THRILLER`. `Bollywood` e
+`Indie` tienen destinos propios. Las etiquetas compuestas de TMDB, como
+`Acción y aventura`, también tienen su propio destino.
+
+La etiqueta de director no interviene en la clasificación. Ambas etiquetas
+se quitan del nombre de la carpeta de destino. Una etiqueta desconocida queda
+en su carpeta original y aparece como `unknown_genre_tag` en el informe. Una
+sugerencia como `THRILLER` para `Thriler` solo sirve para revisión.
 Con `--resume`, si una etiqueta conservada en TEMP contradice el género de la
 carpeta que la contiene, el informe indica `temp_genre_mismatch` y no la mueve.
 

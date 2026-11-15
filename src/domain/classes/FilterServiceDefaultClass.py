@@ -12,8 +12,12 @@ from src.domain.interfaces.IFilterServiceInterface import IFilterService
 
 def _genre_key(value: str) -> str:
     decomposed = unicodedata.normalize("NFKD", value).casefold()
-    plain = "".join(char for char in decomposed if not unicodedata.combining(char))
-    return " ".join(plain.replace("_", " ").replace("-", " ").split())
+    plain = "".join(
+        " " if char in "._" or unicodedata.category(char) == "Pd" else char
+        for char in decomposed
+        if not unicodedata.combining(char)
+    )
+    return " ".join(plain.split())
 
 
 def _edit_distance(left: str, right: str) -> int:
@@ -28,11 +32,21 @@ def _edit_distance(left: str, right: str) -> int:
     return row[-1]
 
 
-_GENRE_KEYS = {
-    _genre_key(label): _genre_key(genre.name)
-    for genre in GenresEnum
-    for label in (genre.name, genre.value, *GENRE_ALIASES.get(genre, ()))
-}
+def _build_genre_keys() -> dict[str, str]:
+    keys: dict[str, str] = {}
+    for genre in GenresEnum:
+        canonical = _genre_key(genre.name)
+        for label in (genre.name, genre.value, *GENRE_ALIASES.get(genre, ())):
+            key = _genre_key(label)
+            existing = keys.setdefault(key, canonical)
+            if existing != canonical:
+                raise ValueError(
+                    f"Genre label {label!r} maps to {existing!r} and {canonical!r}"
+                )
+    return keys
+
+
+_GENRE_KEYS = _build_genre_keys()
 
 
 class FilterServiceDefault(IFilterService):
